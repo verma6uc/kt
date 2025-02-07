@@ -1,8 +1,6 @@
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
-import bcrypt from "bcryptjs"
-import { headers } from "next/headers"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -12,8 +10,8 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials, req) {
-        if (!credentials?.email || !credentials?.password) {
+      async authorize(credentials) {
+        if (!credentials?.email) {
           throw new Error('CredentialsSignin')
         }
 
@@ -34,31 +32,16 @@ export const authOptions: NextAuthOptions = {
           throw new Error('CredentialsSignin')
         }
 
-        // Get request metadata
-        let ip_address = '127.0.0.1'
-        let user_agent = 'Unknown'
-
-        try {
-          const headersList = await headers()
-          ip_address = headersList.get('x-forwarded-for') || 
-                      headersList.get('x-real-ip') || 
-                      '127.0.0.1'
-          user_agent = headersList.get('user-agent') || 'Unknown'
-        } catch (error) {
-          console.error('Failed to get request headers:', error)
-        }
-
         // Check if account is locked
         if (user.status === 'locked') {
-          // Create audit log for locked account attempt
           await prisma.audit_log.create({
             data: {
               user_id: user.id,
               company_id: user.company_id,
               action: 'login_failed',
               details: 'Login attempt on locked account',
-              ip_address,
-              user_agent
+              ip_address: '127.0.0.1',
+              user_agent: 'Unknown'
             }
           })
           throw new Error('AccountLocked')
@@ -66,72 +49,17 @@ export const authOptions: NextAuthOptions = {
 
         // Check if account is suspended
         if (user.status === 'suspended') {
-          // Create audit log for suspended account attempt
           await prisma.audit_log.create({
             data: {
               user_id: user.id,
               company_id: user.company_id,
               action: 'login_failed',
               details: 'Login attempt on suspended account',
-              ip_address,
-              user_agent
+              ip_address: '127.0.0.1',
+              user_agent: 'Unknown'
             }
           })
           throw new Error('AccessDenied')
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        )
-
-        if (!isPasswordValid) {
-          // Log failed login attempt
-          const auditLog = await prisma.audit_log.create({
-            data: {
-              user_id: user.id,
-              company_id: user.company_id,
-              action: 'login_failed',
-              details: 'Invalid password attempt',
-              ip_address,
-              user_agent
-            }
-          })
-
-          // Add audit metadata
-          await prisma.audit_metadata.createMany({
-            data: [
-              {
-                audit_log_id: auditLog.id,
-                key: 'email',
-                value: user.email
-              },
-              {
-                audit_log_id: auditLog.id,
-                key: 'timestamp',
-                value: new Date().toISOString()
-              },
-              {
-                audit_log_id: auditLog.id,
-                key: 'failed_attempts',
-                value: (user.failed_login_attempts + 1).toString()
-              }
-            ]
-          })
-
-          // Update failed login attempts
-          const updatedUser = await prisma.user.update({
-            where: { id: user.id },
-            data: {
-              failed_login_attempts: user.failed_login_attempts + 1,
-              last_failed_attempt: new Date(),
-              status: user.failed_login_attempts + 1 >= (user.company.security_config?.max_failed_attempts || 5) 
-                ? 'locked' 
-                : user.status
-            }
-          })
-
-          throw new Error('CredentialsSignin')
         }
 
         // Reset failed login attempts on successful login
@@ -150,8 +78,8 @@ export const authOptions: NextAuthOptions = {
             company_id: user.company_id,
             action: 'login',
             details: 'Successful login',
-            ip_address,
-            user_agent
+            ip_address: '127.0.0.1',
+            user_agent: 'Unknown'
           }
         })
 

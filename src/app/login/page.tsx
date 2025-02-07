@@ -2,9 +2,15 @@
 
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, AlertCircle } from "lucide-react"
+
+interface FormErrors {
+  email?: string
+  password?: string
+  general?: string
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -13,14 +19,43 @@ export default function LoginPage() {
   
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
+  const [errors, setErrors] = useState<FormErrors>({})
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
+  // Clear errors when inputs change
+  useEffect(() => {
+    setErrors({})
+  }, [email, password])
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {}
+
+    if (!email) {
+      newErrors.email = 'Email is required'
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = 'Please enter a valid email address'
+    }
+
+    if (!password) {
+      newErrors.password = 'Password is required'
+    } else if (password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+
+    if (!validateForm()) {
+      return
+    }
+
     setLoading(true)
+    setErrors({})
 
     try {
       const result = await signIn("credentials", {
@@ -33,22 +68,22 @@ export default function LoginPage() {
       if (result?.error) {
         switch (result.error) {
           case 'CredentialsSignin':
-            setError("Invalid email or password")
+            setErrors({ general: "Invalid email or password" })
             break
           case 'AccessDenied':
-            setError("Your account has been suspended")
+            setErrors({ general: "Your account has been suspended" })
             break
           case 'AccountLocked':
-            setError("Your account has been locked due to too many failed attempts")
+            setErrors({ general: "Your account has been locked due to too many failed attempts" })
             break
           default:
-            setError("An error occurred. Please try again.")
+            setErrors({ general: "An error occurred. Please try again." })
         }
       } else {
         router.push(callbackUrl)
       }
     } catch (error) {
-      setError("An error occurred. Please try again.")
+      setErrors({ general: "An error occurred. Please try again." })
     } finally {
       setLoading(false)
     }
@@ -78,13 +113,14 @@ export default function LoginPage() {
             Sign in to continue
           </h2>
 
-          {error && (
-            <div className="bg-red-50 text-red-500 p-3 rounded text-sm relative">
-              {error}
+          {errors.general && (
+            <div className="bg-red-50 text-red-500 p-3 rounded text-sm relative flex items-start">
+              <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+              <span>{errors.general}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4 relative">
+          <form onSubmit={handleSubmit} className="space-y-4 relative" noValidate>
             <div>
               <label
                 htmlFor="email"
@@ -97,11 +133,15 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="username"
-                className="mt-1 block w-full px-3 py-2 bg-white/50 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200"
+                className={`mt-1 block w-full px-3 py-2 bg-white/50 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 ${
+                  errors.email ? 'border-red-300' : 'border-gray-300'
+                }`}
                 placeholder="Enter your email"
+                autoComplete="username"
               />
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+              )}
             </div>
 
             <div>
@@ -117,10 +157,11 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                  className="block w-full px-3 py-2 bg-white/50 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 pr-10"
+                  className={`block w-full px-3 py-2 bg-white/50 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 pr-10 ${
+                    errors.password ? 'border-red-300' : 'border-gray-300'
+                  }`}
                   placeholder="Enter your password"
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
@@ -134,6 +175,9 @@ export default function LoginPage() {
                   )}
                 </button>
               </div>
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-500">{errors.password}</p>
+              )}
             </div>
 
             <div className="flex items-center justify-between">
