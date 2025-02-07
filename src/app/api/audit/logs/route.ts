@@ -1,60 +1,72 @@
-import { prisma } from "@/lib/prisma"
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { Prisma, audit_action } from '@prisma/client'
 
-interface AuditLogUser {
-  name: string | null
-  email: string
-  role: string
-}
-
-interface AuditLog {
-  id: string
-  user_id: string
-  company_id: string
-  action: string
-  details: string
-  ip_address: string | null
-  user_agent: string | null
-  created_at: Date
-  user: AuditLogUser
-}
-
-export async function GET(req: Request) {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+    if (!session) {
+      return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const { searchParams } = new URL(req.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
-    const action = searchParams.get('action')
-    const userId = searchParams.get('userId')
+    if (session.user.role !== 'super_admin') {
+      return new NextResponse('Forbidden', { status: 403 })
+    }
 
-    // Build where clause
-    const where = {
-      company_id: session.user.companyId,
-      ...(startDate && endDate && {
-        created_at: {
-          gte: new Date(startDate),
-          lte: new Date(endDate)
-        }
-      }),
-      ...(action && { action }),
-      ...(userId && { user_id: userId })
+    // Get URL parameters
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const pageSize = parseInt(searchParams.get('pageSize') || '10')
+    const search = searchParams.get('search') || ''
+    const action = searchParams.get('action') as audit_action | undefined
+    const companyId = searchParams.get('companyId') || undefined
+    const userId = searchParams.get('userId') || undefined
+    const startDate = searchParams.get('startDate') || undefined
+    const endDate = searchParams.get('endDate') || undefined
+
+    // Build where clause for search and filters
+    const whereClause: Prisma.audit_logWhereInput = {
+      AND: [
+        // Search in details
+        search ? {
+          OR: [
+            { details: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { ip_address: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { user_agent: { contains: search, mode: Prisma.QueryMode.insensitive } }
+          ]
+        } : {},
+        // Action filter
+        action ? { action } : {},
+        // Company filter
+        companyId ? { company_id: parseInt(companyId) } : {},
+        // User filter
+        userId ? { user_id: parseInt(userId) } : {},
+        // Date range filter
+        startDate || endDate ? {
+          created_at: {
+            ...(startDate && { gte: new Date(startDate) }),
+            ...(endDate && { lte: new Date(endDate) })
+          }
+        } : {}
+      ]
     }
 
     // Get total count for pagination
-    const total = await prisma.audit_log.count({ where })
+    const totalCount = await prisma.audit_log.count({
+      where: whereClause
+    })
 
-    // Get paginated results
-    const logs = await prisma.audit_log.findMany({
-      where,
+    // Get audit logs with pagination, search, and sorting
+    const auditLogs = await prisma.audit_log.findMany({
+      where: whereClause,
+      orderBy: {
+        created_at: 'desc'
+      },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
       include: {
         user: {
           select: {
@@ -63,100 +75,41 @@ export async function GET(req: Request) {
             email: true,
             role: true
           }
-        }
-      },
-      orderBy: {
-        created_at: 'desc'
-      },
-      skip: (page - 1) * limit,
-      take: limit
-    })
-
-    return NextResponse.json({
-      logs,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit)
-      }
-    })
-  } catch (error) {
-    console.error("Audit logs fetch error:", error)
-    return NextResponse.json(
-      { error: "Error fetching audit logs" },
-      { status: 500 }
-    )
-  }
-}
-
-// Export audit logs to CSV
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { startDate, endDate, action, userId } = await req.json()
-
-    // Build where clause
-    const where = {
-      company_id: session.user.companyId,
-      ...(startDate && endDate && {
-        created_at: {
-          gte: new Date(startDate),
-          lte: new Date(endDate)
-        }
-      }),
-      ...(action && { action }),
-      ...(userId && { user_id: userId })
-    }
-
-    const logs = await prisma.audit_log.findMany({
-      where,
-      include: {
-        user: {
+        },
+        company: {
           select: {
+            id: true,
             name: true,
-            email: true,
-            role: true
+            identifier: true
           }
         }
-      },
-      orderBy: {
-        created_at: 'desc'
       }
     })
 
-    // Convert to CSV format
-    const csvHeader = 'Timestamp,User,Email,Role,Action,Details,IP Address,User Agent\n'
-    const csvRows = logs.map((log: AuditLog) => {
-      return [
-        log.created_at.toISOString(),
-        log.user.name || 'N/A',
-        log.user.email,
-        log.user.role,
-        log.action,
-        log.details,
-        log.ip_address || 'N/A',
-        log.user_agent || 'N/A'
-      ].map(field => `"${String(field)}"`).join(',')
-    }).join('\n')
+    // Get metadata for each audit log
+    const auditLogsWithMetadata = await Promise.all(
+      auditLogs.map(async (log) => {
+        const metadata = await prisma.audit_metadata.findMany({
+          where: { audit_log_id: log.id }
+        })
+        return {
+          ...log,
+          metadata
+        }
+      })
+    )
 
-    const csv = csvHeader + csvRows
-
-    return new NextResponse(csv, {
-      headers: {
-        'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="audit_logs_${new Date().toISOString()}.csv"`
+    return NextResponse.json({
+      auditLogs: auditLogsWithMetadata,
+      pagination: {
+        currentPage: page,
+        pageSize,
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize)
       }
     })
   } catch (error) {
-    console.error("Audit logs export error:", error)
-    return NextResponse.json(
-      { error: "Error exporting audit logs" },
-      { status: 500 }
-    )
+    console.error('Error fetching audit logs:', error)
+    return new NextResponse('Internal Server Error', { status: 500 })
   }
 }
