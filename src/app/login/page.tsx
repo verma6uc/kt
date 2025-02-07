@@ -1,13 +1,16 @@
 "use client"
 
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import Image from "next/image"
 import { Eye, EyeOff } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams?.get('callbackUrl') || '/dashboard'
+  
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -24,12 +27,25 @@ export default function LoginPage() {
         email,
         password,
         redirect: false,
+        callbackUrl,
       })
 
       if (result?.error) {
-        setError("Invalid email or password")
+        switch (result.error) {
+          case 'CredentialsSignin':
+            setError("Invalid email or password")
+            break
+          case 'AccessDenied':
+            setError("Your account has been suspended")
+            break
+          case 'AccountLocked':
+            setError("Your account has been locked due to too many failed attempts")
+            break
+          default:
+            setError("An error occurred. Please try again.")
+        }
       } else {
-        router.push("/dashboard")
+        router.push(callbackUrl)
       }
     } catch (error) {
       setError("An error occurred. Please try again.")
