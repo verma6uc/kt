@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useMemo } from "react"
-import { Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Mail, User } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Mail, User, Users, MoreVertical } from "lucide-react"
 import clsx from "clsx"
 import { Company } from "@/types/company"
 
@@ -15,7 +15,7 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [sortField, setSortField] = useState<keyof Company>('name')
+  const [sortField, setSortField] = useState<keyof Company | '_count.users'>('name')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [companies, setCompanies] = useState<Company[]>([])
 
@@ -59,8 +59,14 @@ export default function CompaniesPage() {
         )
       })
       .sort((a, b) => {
-        const aValue = a[sortField]
-        const bValue = b[sortField]
+        if (sortField === '_count.users') {
+          return sortDirection === 'asc' 
+            ? a._count.users - b._count.users
+            : b._count.users - a._count.users
+        }
+
+        const aValue = a[sortField as keyof Company]
+        const bValue = b[sortField as keyof Company]
 
         if (aValue === null) return sortDirection === 'asc' ? -1 : 1
         if (bValue === null) return sortDirection === 'asc' ? 1 : -1
@@ -79,7 +85,7 @@ export default function CompaniesPage() {
     currentPage * ITEMS_PER_PAGE
   )
 
-  const handleSort = (field: keyof Company) => {
+  const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
@@ -88,7 +94,7 @@ export default function CompaniesPage() {
     }
   }
 
-  const SortIcon = ({ field }: { field: keyof Company }) => {
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
     if (sortField !== field) return null
     return sortDirection === 'asc' ? (
       <ChevronUp className="w-4 h-4 ml-1 inline" />
@@ -191,11 +197,13 @@ export default function CompaniesPage() {
                         </th>
                         <th
                           scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                          onClick={() => handleSort('_count.users')}
                         >
                           <div className="flex items-center">
-                            <Mail className="h-4 w-4 mr-1" />
-                            <span className="font-bold">Admin Email</span>
+                            <Users className="h-4 w-4 mr-1 text-blue-500" />
+                            <span className="font-bold">Users</span>
+                            <SortIcon field="_count.users" />
                           </div>
                         </th>
                         <th
@@ -203,9 +211,15 @@ export default function CompaniesPage() {
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                         >
                           <div className="flex items-center">
-                            <User className="h-4 w-4 mr-1" />
-                            <span className="font-bold">Admin Name</span>
+                            <User className="h-4 w-4 mr-1 text-blue-500" />
+                            <span className="font-bold">Admin</span>
                           </div>
+                        </th>
+                        <th
+                          scope="col"
+                          className="relative px-6 py-3"
+                        >
+                          <span className="sr-only">Actions</span>
                         </th>
                       </tr>
                     </thead>
@@ -244,15 +258,28 @@ export default function CompaniesPage() {
                             ) : '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center">
+                              <Users className="h-4 w-4 mr-1 text-blue-500" />
+                              <span>{company._count.users}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {company.users[0]?.email ? (
-                              <div className="flex items-center text-blue-600">
-                                <Mail className="h-4 w-4 mr-1" />
-                                {company.users[0].email}
+                              <div>
+                                {company.users[0].name && (
+                                  <div className="font-medium text-gray-900">{company.users[0].name}</div>
+                                )}
+                                <div className="flex items-center text-blue-600">
+                                  <Mail className="h-4 w-4 mr-1" />
+                                  {company.users[0].email}
+                                </div>
                               </div>
                             ) : '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {company.users[0]?.name || '-'}
+                            <button className="text-gray-400 hover:text-gray-500">
+                              <MoreVertical className="h-5 w-5" />
+                            </button>
                           </td>
                         </tr>
                       ))}
