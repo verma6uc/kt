@@ -1,4 +1,4 @@
-import { NotificationStatus, NotificationWithUser, NotificationPriority } from "@/types/notification"
+import { NotificationStatus, NotificationPriority, NotificationWithUser } from "@/types/notification"
 
 interface NotificationsResponse {
   notifications: NotificationWithUser[]
@@ -58,15 +58,6 @@ export class NotificationsApi {
       throw new Error('Failed to update notification')
     }
     return response.json() as Promise<NotificationWithUser>
-  }
-
-  static async deleteNotification(id: string) {
-    const response = await fetch(`/api/notifications?id=${id}`, {
-      method: 'DELETE',
-    })
-    if (!response.ok) {
-      throw new Error('Failed to delete notification')
-    }
   }
 
   static async markAllAsRead() {

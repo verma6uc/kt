@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { Prisma, notification_status, notification_priority } from '@prisma/client'
+import { notification_status, notification_priority, Prisma } from '@prisma/client'
 
 export async function GET(request: Request) {
   try {
@@ -17,10 +17,8 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const pageSize = parseInt(searchParams.get('pageSize') || '10')
     const search = searchParams.get('search') || ''
-    const status = searchParams.get('status') as notification_status | undefined
-    const priority = searchParams.get('priority') as notification_priority | undefined
-    const sortField = searchParams.get('sortField') || 'created_at'
-    const sortDirection = (searchParams.get('sortDirection') || 'desc') as 'asc' | 'desc'
+    const status = searchParams.get('status') as notification_status | null
+    const priority = searchParams.get('priority') as notification_priority | null
 
     // Build where clause for search and filters
     const whereClause: Prisma.notificationWhereInput = {
@@ -40,11 +38,6 @@ export async function GET(request: Request) {
       ]
     }
 
-    // Build order by clause
-    const orderBy: Prisma.notificationOrderByWithRelationInput = {
-      [sortField]: sortDirection
-    }
-
     // Get total count for pagination
     const totalCount = await prisma.notification.count({
       where: whereClause
@@ -53,7 +46,9 @@ export async function GET(request: Request) {
     // Get notifications with pagination, search, and sorting
     const notifications = await prisma.notification.findMany({
       where: whereClause,
-      orderBy,
+      orderBy: {
+        created_at: 'desc'
+      },
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {
@@ -120,35 +115,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json(notification)
   } catch (error) {
     console.error('Error updating notification:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
-  }
-}
-
-export async function DELETE(request: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
-
-    if (!id) {
-      return new NextResponse('Missing notification ID', { status: 400 })
-    }
-
-    await prisma.notification.delete({
-      where: {
-        id: parseInt(id),
-        user_id: parseInt(session.user.id)
-      }
-    })
-
-    return new NextResponse(null, { status: 204 })
-  } catch (error) {
-    console.error('Error deleting notification:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 }

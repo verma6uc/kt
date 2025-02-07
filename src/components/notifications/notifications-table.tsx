@@ -2,19 +2,17 @@
 
 import { Notification } from '@/types/notification'
 import { formatDistanceToNow } from 'date-fns'
-import { Bell, CheckCircle, Clock, ExternalLink } from 'lucide-react'
+import { Bell, CheckCircle, Clock } from 'lucide-react'
 import Link from 'next/link'
 
 interface NotificationsTableProps {
   notifications: Notification[]
   onMarkAsRead: (id: string) => void
-  onDelete: (id: string) => void
 }
 
 export function NotificationsTable({
   notifications,
-  onMarkAsRead,
-  onDelete
+  onMarkAsRead
 }: NotificationsTableProps) {
   return (
     <div className="mt-6 flow-root">
@@ -96,7 +94,6 @@ export function NotificationsTable({
                             className="text-blue-600 hover:text-blue-900 flex items-center"
                           >
                             View
-                            <ExternalLink className="ml-1 h-4 w-4" />
                           </Link>
                         )}
                         {notification.status === 'unread' && (
@@ -107,12 +104,6 @@ export function NotificationsTable({
                             Mark as read
                           </button>
                         )}
-                        <button
-                          onClick={() => onDelete(notification.id.toString())}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Delete
-                        </button>
                       </div>
                     </td>
                   </tr>

@@ -20,7 +20,6 @@ export default function NotificationsPage() {
     selectedStatuses,
     selectedPriorities,
     handleMarkAsRead,
-    handleDelete,
     handlePageChange,
     handleSearch,
     handleStatusChange,
@@ -80,7 +79,6 @@ export default function NotificationsPage() {
             <NotificationsTable
               notifications={notifications}
               onMarkAsRead={handleMarkAsRead}
-              onDelete={handleDelete}
             />
 
             {pagination.totalPages > 1 && (

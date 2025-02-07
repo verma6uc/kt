@@ -1,17 +1,13 @@
 import { useState, useCallback } from 'react'
 import { Notification } from '@/types/notification'
 import { useToast } from '@/components/providers/toast-provider'
+import { NotificationsApi } from '@/lib/api/notifications'
 
 interface PaginationInfo {
   currentPage: number
   pageSize: number
   totalCount: number
   totalPages: number
-}
-
-interface NotificationsResponse {
-  notifications: Notification[]
-  pagination: PaginationInfo
 }
 
 export function useNotificationsPage(initialNotifications: Notification[] = []) {
@@ -38,22 +34,15 @@ export function useNotificationsPage(initialNotifications: Notification[] = []) 
   ) => {
     try {
       setLoading(true)
-      const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: pageSize.toString(),
+      const response = await NotificationsApi.getNotifications({
+        page,
+        pageSize,
         search,
+        status: statuses[0] as any,
+        priority: priorities[0] as any
       })
-
-      // Add array parameters
-      statuses.forEach(status => params.append('status', status))
-      priorities.forEach(priority => params.append('priority', priority))
-
-      const response = await fetch(`/api/notifications?${params}`)
-      if (!response.ok) throw new Error('Failed to fetch notifications')
-
-      const data: NotificationsResponse = await response.json()
-      setNotifications(data.notifications)
-      setPagination(data.pagination)
+      setNotifications(response.notifications)
+      setPagination(response.pagination)
     } catch (error) {
       console.error('Error fetching notifications:', error)
       showToast({
@@ -68,19 +57,8 @@ export function useNotificationsPage(initialNotifications: Notification[] = []) 
 
   const handleMarkAsRead = useCallback(async (id: string) => {
     try {
-      const response = await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          id,
-          status: 'read'
-        })
-      })
-
-      if (!response.ok) throw new Error('Failed to update notification')
-
+      await NotificationsApi.updateNotificationStatus(id, 'read')
+      
       // Refresh notifications
       fetchNotifications()
 
@@ -95,32 +73,6 @@ export function useNotificationsPage(initialNotifications: Notification[] = []) 
         type: 'error',
         title: 'Error',
         message: 'Failed to update notification'
-      })
-    }
-  }, [fetchNotifications, showToast])
-
-  const handleDelete = useCallback(async (id: string) => {
-    try {
-      const response = await fetch(`/api/notifications?id=${id}`, {
-        method: 'DELETE'
-      })
-
-      if (!response.ok) throw new Error('Failed to delete notification')
-
-      // Refresh notifications
-      fetchNotifications()
-
-      showToast({
-        type: 'success',
-        title: 'Success',
-        message: 'Notification deleted'
-      })
-    } catch (error) {
-      console.error('Error deleting notification:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        message: 'Failed to delete notification'
       })
     }
   }, [fetchNotifications, showToast])
@@ -152,7 +104,6 @@ export function useNotificationsPage(initialNotifications: Notification[] = []) 
     selectedStatuses,
     selectedPriorities,
     handleMarkAsRead,
-    handleDelete,
     handlePageChange,
     handleSearch,
     handleStatusChange,
