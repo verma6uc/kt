@@ -11,6 +11,7 @@ interface CompanyTableProps {
   sortDirection: 'asc' | 'desc'
   currentPage: number
   pageSize: number
+  totalPages: number
   actionMenuOpen: number | null
   onSort: (field: keyof Company) => void
   onPageChange: (page: number) => void
@@ -25,6 +26,7 @@ export function CompanyTable({
   sortDirection,
   currentPage,
   pageSize,
+  totalPages,
   actionMenuOpen,
   onSort,
   onPageChange,
@@ -32,12 +34,8 @@ export function CompanyTable({
   onMenuToggle,
   onMenuClick
 }: CompanyTableProps) {
-  const totalItems = companies.length
-  const totalPages = Math.ceil(totalItems / pageSize)
-  const paginatedCompanies = companies.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  )
+  // Calculate total items from totalPages and pageSize
+  const totalItems = (totalPages - 1) * pageSize + companies.length
 
   return (
     <div className="mt-4 flow-root">
@@ -50,7 +48,7 @@ export function CompanyTable({
               onSort={onSort}
             />
             <tbody className="divide-y divide-gray-200">
-              {paginatedCompanies.map((company) => (
+              {companies.map((company) => (
                 <CompanyTableRow
                   key={company.id}
                   company={company}

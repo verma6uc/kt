@@ -3,9 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { writeFile } from 'fs/promises'
-import { company_type, company_status, audit_action } from '@prisma/client'
+import { company_type, company_status, audit_action, Prisma } from '@prisma/client'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -17,10 +17,51 @@ export async function GET() {
       return new NextResponse('Forbidden', { status: 403 })
     }
 
+    // Get URL parameters
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const pageSize = parseInt(searchParams.get('pageSize') || '10')
+    const search = searchParams.get('search') || ''
+    const sortField = searchParams.get('sortField') || 'name'
+    const sortDirection = (searchParams.get('sortDirection') || 'asc') as 'asc' | 'desc'
+
+    // Calculate pagination
+    const skip = (page - 1) * pageSize
+
+    // Build where clause for search
+    const whereClause: Prisma.companyWhereInput = search ? {
+      OR: [
+        { name: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
+        { identifier: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
+        { industry: { contains: search, mode: 'insensitive' as Prisma.QueryMode } }
+      ]
+    } : {}
+
+    // Build order by clause
+    let orderBy: Prisma.companyOrderByWithRelationInput = {}
+    if (sortField === 'users') {
+      orderBy = {
+        users: {
+          _count: sortDirection
+        }
+      }
+    } else {
+      orderBy = {
+        [sortField]: sortDirection
+      }
+    }
+
+    // Get total count for pagination
+    const totalCount = await prisma.company.count({
+      where: whereClause
+    })
+
+    // Get companies with pagination, search, and sorting
     const companies = await prisma.company.findMany({
-      orderBy: {
-        name: 'asc',
-      },
+      where: whereClause,
+      orderBy,
+      skip,
+      take: pageSize,
       include: {
         _count: {
           select: {
@@ -54,7 +95,15 @@ export async function GET() {
       },
     })
 
-    return NextResponse.json(companies)
+    return NextResponse.json({
+      companies,
+      pagination: {
+        currentPage: page,
+        pageSize,
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize)
+      }
+    })
   } catch (error) {
     console.error('Error fetching companies:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
