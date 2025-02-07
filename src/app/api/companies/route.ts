@@ -81,7 +81,7 @@ export async function PATCH(request: Request) {
     }
 
     // Handle file upload
-    let logoUrl = undefined
+    let logoUrl: string | undefined
     const logo = formData.get('logo') as File
     if (logo) {
       try {
@@ -115,6 +115,23 @@ export async function PATCH(request: Request) {
       ...(logoUrl && { logo_url: logoUrl }),
     }
 
+    // Get current company state for audit log
+    const oldCompany = await prisma.company.findUnique({ 
+      where: { id },
+      select: {
+        name: true,
+        identifier: true,
+        description: true,
+        website: true,
+        type: true,
+        industry: true,
+        status: true,
+        tax_id: true,
+        registration_number: true,
+        logo_url: true,
+      }
+    })
+
     // Update company
     const company = await prisma.company.update({
       where: { id },
@@ -125,16 +142,55 @@ export async function PATCH(request: Request) {
       data: updateData,
     })
 
-    // Log the status change if status was updated
-    if (updateData.status) {
-      await prisma.audit_log.create({
-        data: {
-          user_id: parseInt(session.user.id),
-          company_id: id,
-          action: 'update',
-          details: `Company status changed to ${updateData.status}`,
-        },
+    // Create audit log entries for each changed field
+    if (oldCompany) {
+      const changes: string[] = []
+      
+      Object.entries(updateData).forEach(([key, newValue]) => {
+        const oldValue = oldCompany[key as keyof typeof oldCompany]
+        
+        if (oldValue !== newValue) {
+          switch (key) {
+            case 'status':
+              changes.push(`Status changed from ${oldValue} to ${newValue}`)
+              break
+            case 'name':
+              changes.push(`Name changed from "${oldValue}" to "${newValue}"`)
+              break
+            case 'industry':
+              changes.push(`Industry changed from ${oldValue || 'none'} to ${newValue || 'none'}`)
+              break
+            case 'type':
+              changes.push(`Type changed from ${oldValue} to ${newValue}`)
+              break
+            case 'logo_url':
+              changes.push('Company logo was updated')
+              break
+            case 'website':
+              changes.push(`Website changed from ${oldValue || 'none'} to ${newValue || 'none'}`)
+              break
+            case 'tax_id':
+              changes.push(`Tax ID changed from ${oldValue || 'none'} to ${newValue || 'none'}`)
+              break
+            case 'registration_number':
+              changes.push(`Registration number changed from ${oldValue || 'none'} to ${newValue || 'none'}`)
+              break
+            default:
+              changes.push(`${key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')} was updated`)
+          }
+        }
       })
+
+      if (changes.length > 0) {
+        await prisma.audit_log.create({
+          data: {
+            user_id: parseInt(session.user.id),
+            company_id: id,
+            action: 'update',
+            details: changes.join('\n'),
+          },
+        })
+      }
     }
 
     return NextResponse.json(company)

@@ -67,7 +67,7 @@ export default function CompaniesPage() {
     }
   }, [session])
 
-  const handleUpdateCompany = useCallback(async (data: Partial<Company>) => {
+  const handleUpdateCompany = useCallback(async (data: Partial<Company>, company?: Company) => {
     if (!selectedCompany) return
 
     try {
@@ -77,7 +77,7 @@ export default function CompaniesPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: selectedCompany.id,
+          id: company?.id || selectedCompany.id,
           ...data,
         }),
       })
@@ -91,7 +91,7 @@ export default function CompaniesPage() {
     } catch (error) {
       throw new Error('Failed to update company')
     }
-  }, [selectedCompany])
+  }, [selectedCompany, setCompanies])
 
   const filteredAndSortedCompanies = useMemo(() => {
     return [...companies]
@@ -173,15 +173,15 @@ export default function CompaniesPage() {
   }
 
   const handleAction = (company: Company, action: 'edit' | 'suspend' | 'archive') => {
-    setSelectedCompany(company)
-    setEditModalOpen(true)
-    setActionMenuOpen(null)
-
     if (action === 'suspend') {
-      handleUpdateCompany({ ...company, status: 'suspended' })
+      handleUpdateCompany({ status: 'suspended' }, company)
     } else if (action === 'archive') {
-      handleUpdateCompany({ ...company, status: 'archived' })
+      handleUpdateCompany({ status: 'archived' }, company)
+    } else if (action === 'edit') {
+      setSelectedCompany(company)
+      setEditModalOpen(true)
     }
+    setActionMenuOpen(null)
   }
 
   return (
