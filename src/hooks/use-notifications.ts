@@ -2,20 +2,20 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { NotificationsApi } from '@/lib/api/notifications'
-import { NotificationStatus, NotificationWithUser } from '@/types/notification'
+import { NotificationWithUser } from '@/types/notification'
 
-export function useNotifications(initialStatus: NotificationStatus = 'unread') {
+export function useNotifications() {
   const [notifications, setNotifications] = useState<NotificationWithUser[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchNotifications = useCallback(async (status: NotificationStatus = 'unread') => {
+  const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      const data = await NotificationsApi.getNotifications(status)
-      setNotifications(data)
+      const notifications = await NotificationsApi.getDropdownNotifications()
+      setNotifications(notifications)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch notifications')
     } finally {
@@ -34,7 +34,7 @@ export function useNotifications(initialStatus: NotificationStatus = 'unread') {
 
   const updateNotificationStatus = useCallback(async (
     id: number,
-    status: NotificationStatus
+    status: 'read' | 'unread' | 'archived'
   ) => {
     try {
       setError(null)
@@ -60,7 +60,7 @@ export function useNotifications(initialStatus: NotificationStatus = 'unread') {
       setError(null)
       await NotificationsApi.markAllAsRead()
       await Promise.all([
-        fetchNotifications('unread'),
+        fetchNotifications(),
         fetchUnreadCount()
       ])
     } catch (err) {
@@ -70,9 +70,9 @@ export function useNotifications(initialStatus: NotificationStatus = 'unread') {
 
   // Initial fetch
   useEffect(() => {
-    fetchNotifications(initialStatus)
+    fetchNotifications()
     fetchUnreadCount()
-  }, [fetchNotifications, fetchUnreadCount, initialStatus])
+  }, [fetchNotifications, fetchUnreadCount])
 
   // Refresh unread count periodically
   useEffect(() => {
@@ -80,14 +80,20 @@ export function useNotifications(initialStatus: NotificationStatus = 'unread') {
     return () => clearInterval(interval)
   }, [fetchUnreadCount])
 
+  // Refresh notifications periodically
+  useEffect(() => {
+    const interval = setInterval(fetchNotifications, 60000) // every minute
+    return () => clearInterval(interval)
+  }, [fetchNotifications])
+
   return {
     notifications,
     unreadCount,
     loading,
     error,
-    fetchNotifications,
     updateNotificationStatus,
     markAllAsRead,
+    fetchNotifications,
     fetchUnreadCount
   }
 }
