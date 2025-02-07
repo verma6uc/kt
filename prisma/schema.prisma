@@ -1,0 +1,611 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// System enums
+enum user_role {
+  super_admin
+  company_admin
+}
+
+enum user_status {
+  active
+  inactive
+  suspended
+  locked
+  pending_activation
+}
+
+enum company_status {
+  active
+  inactive
+  suspended
+  pending_setup
+}
+
+enum company_type {
+  enterprise
+  small_business
+  startup
+}
+
+enum audit_action {
+  create
+  update
+  delete
+  login
+  logout
+  password_change
+  password_reset
+  settings_change
+  login_failed
+  invitation_sent
+  invitation_resent
+  invitation_cancelled
+  invitation_accepted
+  invitation_expired
+}
+
+enum notification_type {
+  email
+  in_app
+  both
+  none
+}
+
+enum notification_status {
+  unread
+  read
+  archived
+}
+
+enum notification_priority {
+  low
+  medium
+  high
+}
+
+enum invitation_status {
+  pending
+  accepted
+  expired
+  cancelled
+}
+
+enum metric_type {
+  cpu
+  memory
+  disk
+  network
+  api
+  custom
+}
+
+enum health_status {
+  healthy
+  warning
+  critical
+}
+
+enum api_method {
+  GET
+  POST
+  PUT
+  PATCH
+  DELETE
+}
+
+// Base Models
+model address {
+  id            Int       @id @default(autoincrement())
+  uuid          String    @unique @default(uuid())
+  street        String
+  city          String
+  state         String?
+  country       String
+  postal_code   String
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  // Relations
+  companies     company_address[]
+  users         user_address[]
+
+  @@index([country, state, city])
+}
+
+model contact_info {
+  id            Int       @id @default(autoincrement())
+  uuid          String    @unique @default(uuid())
+  type          String    // Phone, Email, Fax, etc.
+  value         String
+  is_primary    Boolean   @default(false)
+  verified      Boolean   @default(false)
+  verified_at   DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  // Relations
+  company_contacts company_contact[]
+  user_contacts    user_contact[]
+
+  @@index([type, value])
+}
+
+// Company and Related Models
+model company {
+  id                  Int              @id @default(autoincrement())
+  uuid                String           @unique @default(uuid())
+  name                String
+  identifier          String           @unique
+  logo_url            String?
+  description         String?
+  website             String?
+  type                company_type     @default(small_business)
+  status              company_status   @default(pending_setup)
+  industry            String?
+  employee_count      Int?
+  tax_id              String?
+  registration_number String?
+  created_at          DateTime         @default(now())
+  updated_at          DateTime         @updatedAt
+  setup_completed_at  DateTime?
+  last_active_at      DateTime?
+  
+  // Monitoring fields
+  health_check_enabled Boolean         @default(true)
+  health_check_interval Int            @default(300)
+  last_health_check    DateTime?
+
+  // Relations
+  addresses           company_address[]
+  contacts            company_contact[]
+  users               user[]
+  smtp_config         smtp_config?
+  security_config     security_config?
+  notification_config notification_config?
+  audit_logs          audit_log[]
+  password_history    password_history[]
+  notifications       notification[]
+  invitations         company_invitation[]
+  company_health      company_health[]
+  api_metrics         api_metrics[]
+  system_metrics      system_metrics[]
+  metrics_hourly      metrics_hourly[]
+  metrics_daily       metrics_daily[]
+  metrics_monthly     metrics_monthly[]
+  resource_quotas     resource_quota[]
+  alert_thresholds    alert_threshold[]
+  reminder_schedules  reminder_schedule[]
+
+  @@index([identifier])
+  @@index([status])
+}
+
+model company_address {
+  id            Int       @id @default(autoincrement())
+  company_id    Int
+  address_id    Int
+  type          String    // HQ, Branch, Billing, etc.
+  is_primary    Boolean   @default(false)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  company       company   @relation(fields: [company_id], references: [id])
+  address       address   @relation(fields: [address_id], references: [id])
+
+  @@unique([company_id, type, is_primary])
+}
+
+model company_contact {
+  id              Int          @id @default(autoincrement())
+  company_id      Int
+  contact_info_id Int
+  department      String?
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
+
+  company         company      @relation(fields: [company_id], references: [id])
+  contact_info    contact_info @relation(fields: [contact_info_id], references: [id])
+
+  @@unique([company_id, contact_info_id])
+}
+
+model smtp_config {
+  id              Int       @id @default(autoincrement())
+  uuid            String    @unique @default(uuid())
+  company_id      Int       @unique
+  host            String
+  port            Int
+  username        String?
+  password        String?
+  from_email      String
+  from_name       String
+  encryption_type String    @default("TLS")
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  company         company   @relation(fields: [company_id], references: [id])
+}
+
+model security_config {
+  id                      Int       @id @default(autoincrement())
+  uuid                    String    @unique @default(uuid())
+  company_id              Int       @unique
+  password_history_limit  Int       @default(3)
+  password_expiry_days    Int       @default(90)
+  max_failed_attempts     Int       @default(5)
+  session_timeout_mins    Int       @default(60)
+  enforce_single_session  Boolean   @default(false)
+  created_at             DateTime   @default(now())
+  updated_at             DateTime   @updatedAt
+
+  company                company    @relation(fields: [company_id], references: [id])
+}
+
+model notification_config {
+  id                    Int               @id @default(autoincrement())
+  uuid                  String            @unique @default(uuid())
+  company_id            Int               @unique
+  notification_type     notification_type @default(email)
+  created_at           DateTime           @default(now())
+  updated_at           DateTime           @updatedAt
+
+  company              company            @relation(fields: [company_id], references: [id])
+}
+
+model reminder_schedule {
+  id          Int      @id @default(autoincrement())
+  company_id  Int
+  days_before Int
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  company     company  @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, days_before])
+}
+
+model alert_threshold {
+  id          Int      @id @default(autoincrement())
+  company_id  Int
+  metric_name String
+  warning     Float
+  critical    Float
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  company     company  @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, metric_name])
+}
+
+model resource_quota {
+  id          Int      @id @default(autoincrement())
+  company_id  Int
+  resource    String
+  limit       Float
+  unit        String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  company     company  @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, resource])
+}
+
+// User and Related Models
+model user {
+  id                    Int           @id @default(autoincrement())
+  uuid                  String        @unique @default(uuid())
+  email                 String        @unique
+  password              String
+  name                  String?
+  role                  user_role     @default(company_admin)
+  status                user_status   @default(pending_activation)
+  company_id            Int
+  failed_login_attempts Int           @default(0)
+  last_failed_attempt   DateTime?
+  last_password_change  DateTime      @default(now())
+  created_at            DateTime      @default(now())
+  updated_at            DateTime      @updatedAt
+  email_verified        DateTime?
+  invitation_accepted_at DateTime?
+  invitation_token      String?
+
+  // Relations
+  company              company       @relation(fields: [company_id], references: [id])
+  addresses            user_address[]
+  contacts             user_contact[]
+  accounts             account[]
+  sessions            session[]
+  audit_logs          audit_log[]
+  password_history    password_history[]
+  notifications       notification[]
+  api_metrics         api_metrics[]
+
+  @@index([company_id, email])
+  @@index([status])
+}
+
+model user_address {
+  id            Int       @id @default(autoincrement())
+  user_id       Int
+  address_id    Int
+  type          String    // Home, Work, etc.
+  is_primary    Boolean   @default(false)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  user          user      @relation(fields: [user_id], references: [id])
+  address       address   @relation(fields: [address_id], references: [id])
+
+  @@unique([user_id, type, is_primary])
+}
+
+model user_contact {
+  id              Int          @id @default(autoincrement())
+  user_id         Int
+  contact_info_id Int
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
+
+  user            user         @relation(fields: [user_id], references: [id])
+  contact_info    contact_info @relation(fields: [contact_info_id], references: [id])
+
+  @@unique([user_id, contact_info_id])
+}
+
+// Monitoring Models
+model api_metrics {
+  id            Int         @id @default(autoincrement())
+  uuid          String      @unique @default(uuid())
+  endpoint      String
+  method        api_method
+  status_code   Int
+  duration_ms   Int
+  user_id       Int?
+  company_id    Int?
+  ip_address    String?
+  user_agent    String?
+  request_size  Int?
+  response_size Int?
+  error_message String?
+  created_at    DateTime    @default(now())
+  
+  user          user?       @relation(fields: [user_id], references: [id])
+  company       company?    @relation(fields: [company_id], references: [id])
+
+  @@index([endpoint])
+  @@index([created_at])
+  @@index([company_id])
+  @@index([status_code])
+}
+
+model system_metrics {
+  id           Int         @id @default(autoincrement())
+  uuid         String      @unique @default(uuid())
+  metric_type  metric_type
+  value        Float
+  unit         String
+  company_id   Int?
+  created_at   DateTime    @default(now())
+  
+  company      company?    @relation(fields: [company_id], references: [id])
+
+  @@index([metric_type, created_at])
+  @@index([company_id])
+}
+
+model company_health {
+  id                 Int           @id @default(autoincrement())
+  uuid               String        @unique @default(uuid())
+  company_id         Int
+  status             health_status @default(healthy)
+  error_rate         Float
+  avg_response_time  Float
+  uptime_percentage  Float
+  active_users       Int
+  critical_issues    Int
+  last_check         DateTime      @default(now())
+  created_at         DateTime      @default(now())
+  
+  company            company       @relation(fields: [company_id], references: [id])
+
+  @@index([company_id])
+  @@index([created_at])
+}
+
+// Aggregated Metrics
+model metrics_hourly {
+  id            Int       @id @default(autoincrement())
+  company_id    Int
+  metric_type   String
+  hour          DateTime
+  min_value     Float
+  max_value     Float
+  avg_value     Float
+  count         Int
+  created_at    DateTime  @default(now())
+
+  company       company   @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, metric_type, hour])
+  @@index([hour])
+}
+
+model metrics_daily {
+  id            Int       @id @default(autoincrement())
+  company_id    Int
+  metric_type   String
+  date          DateTime
+  min_value     Float
+  max_value     Float
+  avg_value     Float
+  count         Int
+  created_at    DateTime  @default(now())
+
+  company       company   @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, metric_type, date])
+  @@index([date])
+}
+
+model metrics_monthly {
+  id            Int       @id @default(autoincrement())
+  company_id    Int
+  metric_type   String
+  month         DateTime
+  min_value     Float
+  max_value     Float
+  avg_value     Float
+  count         Int
+  created_at    DateTime  @default(now())
+
+  company       company   @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, metric_type, month])
+  @@index([month])
+}
+
+// Other Models
+model company_invitation {
+  id                Int               @id @default(autoincrement())
+  uuid              String            @unique @default(uuid())
+  company_id        Int
+  email             String
+  name              String
+  role              user_role         @default(company_admin)
+  token             String            @unique
+  status            invitation_status @default(pending)
+  expires_at        DateTime
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+  accepted_at       DateTime?
+  created_by_id     Int
+  created_by_name   String
+  cancelled_at      DateTime?
+  cancelled_by_id   Int?
+  cancelled_by_name String?
+  reminder_sent_at  DateTime?
+  reminder_count    Int               @default(0)
+  user_id           Int?
+  ip_address        String?
+  user_agent        String?
+
+  company           company           @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, email])
+  @@index([token])
+  @@index([status])
+  @@index([expires_at])
+}
+
+model password_history {
+  id          Int       @id @default(autoincrement())
+  uuid        String    @unique @default(uuid())
+  user_id     Int
+  company_id  Int
+  password    String
+  created_at  DateTime  @default(now())
+  
+  user        user      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  company     company   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+}
+
+model audit_log {
+  id          Int          @id @default(autoincrement())
+  uuid        String       @unique @default(uuid())
+  user_id     Int
+  company_id  Int
+  action      audit_action
+  details     String
+  ip_address  String?
+  user_agent  String?
+  created_at  DateTime     @default(now())
+  
+  user        user         @relation(fields: [user_id], references: [id])
+  company     company      @relation(fields: [company_id], references: [id])
+
+  @@index([company_id, created_at])
+  @@index([user_id, created_at])
+}
+
+model audit_metadata {
+  id           Int      @id @default(autoincrement())
+  audit_log_id Int
+  key          String
+  value        String
+  created_at   DateTime @default(now())
+
+  @@unique([audit_log_id, key])
+}
+
+model notification {
+  id          Int                @id @default(autoincrement())
+  uuid        String             @unique @default(uuid())
+  title       String
+  message     String
+  status      notification_status @default(unread)
+  priority    notification_priority @default(low)
+  user_id     Int
+  company_id  Int
+  link        String?
+  created_at  DateTime           @default(now())
+  read_at     DateTime?
+  
+  user        user              @relation(fields: [user_id], references: [id])
+  company     company           @relation(fields: [company_id], references: [id])
+
+  @@index([user_id, status])
+  @@index([company_id, created_at])
+}
+
+// NextAuth.js Models
+model account {
+  id                  Int      @id @default(autoincrement())
+  uuid                String   @unique @default(uuid())
+  user_id             Int
+  type                String
+  provider            String
+  provider_account_id String
+  refresh_token       String?  @db.Text
+  access_token        String?  @db.Text
+  expires_at          Int?
+  token_type          String?
+  scope               String?
+  id_token            String?  @db.Text
+  session_state       String?
+  
+  user                user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([provider, provider_account_id])
+}
+
+model session {
+  id              Int       @id @default(autoincrement())
+  uuid            String    @unique @default(uuid())
+  session_token   String    @unique
+  user_id         Int
+  expires         DateTime
+  
+  user            user      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model verification_token {
+  id          Int       @id @default(autoincrement())
+  identifier  String
+  token       String    @unique
+  expires     DateTime
+
+  @@unique([identifier, token])
+}
