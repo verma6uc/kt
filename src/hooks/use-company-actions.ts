@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Company } from '@/types/company'
+import { useToast } from '@/components/providers/toast-provider'
 
 interface CompanyUpdate extends Partial<Company> {
   auditDetails?: string
@@ -34,6 +35,8 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [searchQuery, setSearchQuery] = useState('')
 
+  const { showToast } = useToast()
+
   const fetchCompanies = useCallback(async (
     page = pagination.currentPage,
     pageSize = pagination.pageSize,
@@ -59,10 +62,15 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
       setPagination(data.pagination)
     } catch (error) {
       console.error('Error fetching companies:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to fetch companies'
+      })
     } finally {
       setLoading(false)
     }
-  }, [pagination.currentPage, pagination.pageSize, searchQuery, sortField, sortDirection])
+  }, [pagination.currentPage, pagination.pageSize, searchQuery, sortField, sortDirection, showToast])
 
   const handleUpdateCompany = useCallback(async (data: CompanyUpdate, company?: Company) => {
     const targetCompany = company || selectedCompany
@@ -87,15 +95,26 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
       // Refresh companies list
       await fetchCompanies()
 
+      showToast({
+        type: 'success',
+        title: 'Company Updated',
+        message: `${targetCompany.name} has been updated successfully`
+      })
+
       // Close modal if it was opened
       if (editModalOpen) {
         setEditModalOpen(false)
         setSelectedCompany(null)
       }
     } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Update Failed',
+        message: `Failed to update ${targetCompany.name}`
+      })
       throw new Error('Failed to update company')
     }
-  }, [selectedCompany, editModalOpen, fetchCompanies])
+  }, [selectedCompany, editModalOpen, fetchCompanies, showToast])
 
   const handleAction = useCallback((company: Company, action: 'edit' | 'suspend' | 'archive') => {
     if (action === 'edit') {
@@ -106,14 +125,24 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
         status: 'suspended',
         auditDetails: 'Company suspended. All user access has been temporarily blocked.'
       }, company)
+      showToast({
+        type: 'warning',
+        title: 'Company Suspended',
+        message: `${company.name} has been suspended`
+      })
     } else if (action === 'archive') {
       handleUpdateCompany({
         status: 'archived',
         auditDetails: 'Company archived. This is a permanent action.'
       }, company)
+      showToast({
+        type: 'info',
+        title: 'Company Archived',
+        message: `${company.name} has been archived`
+      })
     }
     setActionMenuOpen(null)
-  }, [handleUpdateCompany])
+  }, [handleUpdateCompany, showToast])
 
   const handleMenuClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()

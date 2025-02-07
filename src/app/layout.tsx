@@ -1,26 +1,19 @@
-import type { Metadata } from 'next'
-import { getServerSession } from 'next-auth'
 import { SessionProvider } from '@/components/session-provider'
-import { authOptions } from '@/lib/auth'
+import { ToastProvider } from '@/components/providers/toast-provider'
 import './globals.css'
 
-export const metadata: Metadata = {
-  title: 'Yuvi',
-  description: 'Company Management Platform',
-}
-
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const session = await getServerSession(authOptions)
-
   return (
-    <html lang="en" className="h-full">
-      <body className="min-h-full bg-yuvi-gray-50 text-yuvi-gray-500 antialiased">
-        <SessionProvider session={session}>
-          {children}
+    <html lang="en">
+      <body>
+        <SessionProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
         </SessionProvider>
       </body>
     </html>
