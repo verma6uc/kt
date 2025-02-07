@@ -111,6 +111,38 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
     showToast
   ])
 
+  const handleCreateCompany = useCallback(async (formData: FormData) => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/companies', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(error)
+      }
+
+      await fetchCompanies()
+      showToast({
+        type: 'success',
+        title: 'Company Created',
+        message: 'New company has been created successfully'
+      })
+    } catch (error) {
+      console.error('Error creating company:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to create company'
+      })
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }, [fetchCompanies, showToast])
+
   const handleUpdateCompany = useCallback(async (data: CompanyUpdate, company?: Company) => {
     const targetCompany = company || selectedCompany
     if (!targetCompany) return
@@ -265,6 +297,7 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
     selectedStatuses,
     selectedIndustries,
     handleAction,
+    handleCreateCompany,
     handleUpdateCompany,
     handleMenuClick,
     handleMenuToggle,

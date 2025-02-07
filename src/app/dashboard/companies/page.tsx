@@ -27,6 +27,7 @@ export default function CompaniesPage() {
     selectedStatuses,
     selectedIndustries,
     handleAction,
+    handleCreateCompany,
     handleUpdateCompany,
     handleMenuClick,
     handleMenuToggle,
@@ -97,6 +98,7 @@ export default function CompaniesPage() {
               onIndustryChange={handleIndustryChange}
               onSearchChange={handleSearch}
               onExport={handleExport}
+              onCreate={handleCreateCompany}
               industries={industries}
             />
 

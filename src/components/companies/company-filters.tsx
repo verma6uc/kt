@@ -1,9 +1,11 @@
 "use client"
 
 import { company_type, company_status } from '@prisma/client'
-import { Download, Search } from 'lucide-react'
+import { Download, Plus, Search } from 'lucide-react'
 import { Multiselect } from '@/components/ui/multiselect'
 import { useToast } from '@/components/providers/toast-provider'
+import { CompanyCreateModal } from './company-create-modal'
+import { useState } from 'react'
 
 interface CompanyFiltersProps {
   selectedTypes: string[]
@@ -15,6 +17,7 @@ interface CompanyFiltersProps {
   onIndustryChange: (industries: string[]) => void
   onSearchChange: (query: string) => void
   onExport: () => void
+  onCreate: (data: FormData) => Promise<void>
   industries: string[]
 }
 
@@ -38,8 +41,10 @@ export function CompanyFilters({
   onIndustryChange,
   onSearchChange,
   onExport,
+  onCreate,
   industries
 }: CompanyFiltersProps) {
+  const [createModalOpen, setCreateModalOpen] = useState(false)
   const { showToast } = useToast()
 
   const industryOptions = industries.map(industry => ({
@@ -58,7 +63,7 @@ export function CompanyFilters({
 
   return (
     <div className="space-y-6">
-      {/* Header with Search and Export */}
+      {/* Header with Search and Actions */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="relative flex-1 max-w-md w-full">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -72,13 +77,22 @@ export function CompanyFilters({
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white/50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-shadow duration-200"
           />
         </div>
-        <button
-          onClick={handleExport}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 whitespace-nowrap"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Export Data
-        </button>
+        <div className="flex gap-3 sm:gap-4 w-full sm:w-auto">
+          <button
+            onClick={handleExport}
+            className="flex-1 sm:flex-none inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 whitespace-nowrap"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </button>
+          <button
+            onClick={() => setCreateModalOpen(true)}
+            className="flex-1 sm:flex-none inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 whitespace-nowrap"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Company
+          </button>
+        </div>
       </div>
 
       {/* Filters Section */}
@@ -108,6 +122,12 @@ export function CompanyFilters({
           />
         </div>
       </div>
+
+      <CompanyCreateModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreate={onCreate}
+      />
     </div>
   )
 }

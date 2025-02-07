@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { writeFile } from 'fs/promises'
+import { writeFile, mkdir } from 'fs/promises'
 import { company_type, company_status, audit_action, Prisma } from '@prisma/client'
+import { nanoid } from 'nanoid'
+import path from 'path'
 
 export async function GET(request: Request) {
   try {
@@ -145,6 +147,106 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error('Error fetching companies:', error)
+    return new NextResponse('Internal Server Error', { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return new NextResponse('Unauthorized', { status: 401 })
+    }
+
+    if (session.user.role !== 'super_admin') {
+      return new NextResponse('Forbidden', { status: 403 })
+    }
+
+    const formData = await request.formData()
+    const name = formData.get('name') as string
+    const logo = formData.get('logo') as File | null
+
+    if (!name) {
+      return new NextResponse('Company name is required', { status: 400 })
+    }
+
+    // Generate unique identifier
+    const identifier = nanoid(10).toUpperCase()
+
+    // Check if identifier is unique
+    const existingCompany = await prisma.company.findFirst({
+      where: {
+        OR: [
+          { identifier },
+          { name: { equals: name, mode: 'insensitive' as Prisma.QueryMode } }
+        ]
+      }
+    })
+
+    if (existingCompany) {
+      if (existingCompany.name.toLowerCase() === name.toLowerCase()) {
+        return new NextResponse('Company name already exists', { status: 400 })
+      }
+      // If it's an identifier collision (very unlikely), generate a new one
+      return new NextResponse('Please try again', { status: 409 })
+    }
+
+    let logoUrl: string | undefined
+
+    if (logo) {
+      // Ensure uploads directory exists
+      const uploadsDir = path.join(process.cwd(), 'public/uploads')
+      await mkdir(uploadsDir, { recursive: true })
+
+      // Save logo file
+      const bytes = await logo.arrayBuffer()
+      const buffer = Buffer.from(bytes)
+      const ext = logo.name.split('.').pop()
+      const filename = `company-${identifier}-${Date.now()}.${ext}`
+      const filepath = path.join(uploadsDir, filename)
+      await writeFile(filepath, buffer)
+      logoUrl = `/uploads/${filename}`
+    }
+
+    // Create company
+    const company = await prisma.company.create({
+      data: {
+        name,
+        identifier,
+        logo_url: logoUrl,
+        status: 'pending_setup' as company_status,
+        type: 'small_business' as company_type,
+        security_config: {
+          create: {
+            password_history_limit: 3,
+            password_expiry_days: 90,
+            max_failed_attempts: 5,
+            session_timeout_mins: 60,
+            enforce_single_session: false
+          }
+        }
+      },
+      include: {
+        security_config: true
+      }
+    })
+
+    // Create audit log
+    await prisma.audit_log.create({
+      data: {
+        user_id: parseInt(session.user.id),
+        company_id: company.id,
+        action: audit_action.create,
+        details: `Company created: ${company.name} (${company.identifier})`,
+        ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null,
+        user_agent: request.headers.get('user-agent') || null
+      }
+    })
+
+    return NextResponse.json(company)
+  } catch (error) {
+    console.error('Error creating company:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 }
