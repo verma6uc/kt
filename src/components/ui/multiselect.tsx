@@ -71,10 +71,10 @@ export function Multiselect({
         </label>
       )}
       <div
-        className="min-h-[38px] px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm cursor-pointer hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        className="relative min-h-[38px] px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm cursor-pointer hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1 pr-16">
           {selectedOptions.length === 0 ? (
             <span className="text-gray-500">{placeholder}</span>
           ) : (
@@ -96,7 +96,7 @@ export function Multiselect({
             </>
           )}
         </div>
-        <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+        <div className="absolute right-0 top-0 h-full pr-2 flex items-center gap-1">
           {value.length > 0 && (
             <button
               onClick={handleClearAll}
@@ -105,7 +105,7 @@ export function Multiselect({
               <X className="h-4 w-4" />
             </button>
           )}
-          <ChevronDown className="h-4 w-4 text-gray-400" />
+          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`} />
         </div>
       </div>
       {isOpen && (
