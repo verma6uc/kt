@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useMemo } from "react"
-import { Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Mail, User } from "lucide-react"
 import clsx from "clsx"
 import { Company } from "@/types/company"
 
@@ -155,7 +155,7 @@ export default function CompaniesPage() {
                           onClick={() => handleSort('name')}
                         >
                           <div className="flex items-center">
-                            Name
+                            <span className="font-bold">Company Name</span>
                             <SortIcon field="name" />
                           </div>
                         </th>
@@ -165,7 +165,7 @@ export default function CompaniesPage() {
                           onClick={() => handleSort('type')}
                         >
                           <div className="flex items-center">
-                            Type
+                            <span className="font-bold">Type</span>
                             <SortIcon field="type" />
                           </div>
                         </th>
@@ -175,7 +175,7 @@ export default function CompaniesPage() {
                           onClick={() => handleSort('status')}
                         >
                           <div className="flex items-center">
-                            Status
+                            <span className="font-bold">Status</span>
                             <SortIcon field="status" />
                           </div>
                         </th>
@@ -185,8 +185,26 @@ export default function CompaniesPage() {
                           onClick={() => handleSort('industry')}
                         >
                           <div className="flex items-center">
-                            Industry
+                            <span className="font-bold">Industry</span>
                             <SortIcon field="industry" />
+                          </div>
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          <div className="flex items-center">
+                            <Mail className="h-4 w-4 mr-1" />
+                            <span className="font-bold">Admin Email</span>
+                          </div>
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          <div className="flex items-center">
+                            <User className="h-4 w-4 mr-1" />
+                            <span className="font-bold">Admin Name</span>
                           </div>
                         </th>
                       </tr>
@@ -195,10 +213,13 @@ export default function CompaniesPage() {
                       {paginatedCompanies.map((company) => (
                         <tr key={company.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {company.name}
+                            <div className="font-medium">{company.name}</div>
+                            <div className="text-sm text-gray-500">{company.identifier}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {company.type}
+                            {company.type.split('_').map(word => 
+                              word.charAt(0).toUpperCase() + word.slice(1)
+                            ).join(' ')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <span
@@ -212,11 +233,26 @@ export default function CompaniesPage() {
                                 }
                               )}
                             >
-                              {company.status.replace('_', ' ')}
+                              {company.status.split('_').map(word => 
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                              ).join(' ')}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {company.industry || '-'}
+                            {company.industry ? (
+                              company.industry.charAt(0).toUpperCase() + company.industry.slice(1)
+                            ) : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {company.users[0]?.email ? (
+                              <div className="flex items-center text-blue-600">
+                                <Mail className="h-4 w-4 mr-1" />
+                                {company.users[0].email}
+                              </div>
+                            ) : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {company.users[0]?.name || '-'}
                           </td>
                         </tr>
                       ))}

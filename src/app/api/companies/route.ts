@@ -27,6 +27,16 @@ export async function GET() {
             system_metrics: true
           },
         },
+        users: {
+          where: {
+            role: 'company_admin',
+            status: 'active'
+          },
+          select: {
+            email: true,
+            name: true
+          }
+        },
         company_health: {
           orderBy: {
             created_at: 'desc'

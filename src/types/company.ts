@@ -28,4 +28,8 @@ export interface Company {
     duration_ms: number
     created_at: Date
   }>
+  users: Array<{
+    email: string
+    name: string | null
+  }>
 }
