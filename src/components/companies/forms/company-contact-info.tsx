@@ -1,49 +1,152 @@
 "use client"
 
-interface CompanyContactInfoProps {
-  website: string
-  industry: string
-  onWebsiteChange: (value: string) => void
-  onIndustryChange: (value: string) => void
-  disabled?: boolean
-}
+import { CompanyContactInfo as CompanyContactInfoType, CompanyContactInfoProps } from '@/types/company-forms'
 
-export function CompanyContactInfo({
-  website,
-  industry,
-  onWebsiteChange,
-  onIndustryChange,
-  disabled
-}: CompanyContactInfoProps) {
+type AddressField = keyof CompanyContactInfoType['address']
+
+export function CompanyContactInfo({ initialData, onChange }: CompanyContactInfoProps) {
+  const handleContactChange = (field: 'email' | 'phone', value: string) => {
+    onChange({ ...initialData, [field]: value })
+  }
+
+  const handleAddressChange = (field: AddressField, value: string) => {
+    const currentAddress = initialData.address || {
+      street: '',
+      city: '',
+      country: '',
+      postal_code: '',
+    }
+
+    onChange({
+      ...initialData,
+      address: {
+        ...currentAddress,
+        [field]: value
+      }
+    })
+  }
+
+  // Ensure address object exists
+  const address = initialData.address || {
+    street: '',
+    city: '',
+    country: '',
+    postal_code: '',
+  }
+
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="space-y-6">
       <div>
-        <label htmlFor="website" className="block text-sm font-medium text-gray-700">
-          Website
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          Email Address
         </label>
-        <input
-          type="url"
-          id="website"
-          value={website}
-          onChange={(e) => onWebsiteChange(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          placeholder="https://"
-          disabled={disabled}
-        />
+        <div className="mt-1">
+          <input
+            type="email"
+            id="email"
+            value={initialData.email || ''}
+            onChange={(e) => handleContactChange('email', e.target.value)}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+        </div>
       </div>
 
       <div>
-        <label htmlFor="industry" className="block text-sm font-medium text-gray-700">
-          Industry
+        <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+          Phone Number
         </label>
-        <input
-          type="text"
-          id="industry"
-          value={industry}
-          onChange={(e) => onIndustryChange(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={disabled}
-        />
+        <div className="mt-1">
+          <input
+            type="tel"
+            id="phone"
+            value={initialData.phone || ''}
+            onChange={(e) => handleContactChange('phone', e.target.value)}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        <h4 className="font-medium text-gray-900">Address</h4>
+
+        <div>
+          <label htmlFor="street" className="block text-sm font-medium text-gray-700">
+            Street Address
+          </label>
+          <div className="mt-1">
+            <input
+              type="text"
+              id="street"
+              value={address.street}
+              onChange={(e) => handleAddressChange('street', e.target.value)}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div>
+            <label htmlFor="city" className="block text-sm font-medium text-gray-700">
+              City
+            </label>
+            <div className="mt-1">
+              <input
+                type="text"
+                id="city"
+                value={address.city}
+                onChange={(e) => handleAddressChange('city', e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="state" className="block text-sm font-medium text-gray-700">
+              State / Province
+            </label>
+            <div className="mt-1">
+              <input
+                type="text"
+                id="state"
+                value={address.state || ''}
+                onChange={(e) => handleAddressChange('state', e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div>
+            <label htmlFor="country" className="block text-sm font-medium text-gray-700">
+              Country
+            </label>
+            <div className="mt-1">
+              <input
+                type="text"
+                id="country"
+                value={address.country}
+                onChange={(e) => handleAddressChange('country', e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="postal_code" className="block text-sm font-medium text-gray-700">
+              Postal Code
+            </label>
+            <div className="mt-1">
+              <input
+                type="text"
+                id="postal_code"
+                value={address.postal_code}
+                onChange={(e) => handleAddressChange('postal_code', e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )

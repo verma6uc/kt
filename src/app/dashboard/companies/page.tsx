@@ -2,72 +2,100 @@
 
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { useEffect, useMemo } from "react"
-import { CompanyHeader } from "@/components/companies/company-header"
+import { useEffect, useState } from "react"
 import { CompanyTable } from "@/components/companies/company-table"
 import { CompanyFilters } from "@/components/companies/company-filters"
-import CompanyEditModal from "@/components/companies/company-edit-modal"
-import { useCompanyActions } from "@/hooks/use-company-actions"
+import { CompanyCreateModal } from "@/components/companies/company-create-modal"
+import { CompanyEditModal } from "@/components/companies/company-edit-modal"
+import { Company } from "@/types/company"
+import { useToast } from "@/components/providers/toast-provider"
+import { Pagination } from "@/components/ui/pagination"
 
 export default function CompaniesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const { showToast } = useToast()
   
-  const {
-    companies,
-    selectedCompany,
-    editModalOpen,
-    actionMenuOpen,
-    loading,
-    pagination,
-    sortField,
-    sortDirection,
-    searchQuery,
-    selectedTypes,
-    selectedStatuses,
-    selectedIndustries,
-    handleAction,
-    handleCreateCompany,
-    handleUpdateCompany,
-    handleMenuClick,
-    handleMenuToggle,
-    handleModalClose,
-    handlePageChange,
-    handleSearch,
-    handleSort,
-    handleExport,
-    handleTypeChange,
-    handleStatusChange,
-    handleIndustryChange,
-    fetchCompanies
-  } = useCompanyActions()
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [pageSize] = useState(10)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([])
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
+  const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
 
   // Auth check
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login?callbackUrl=/dashboard/companies')
-    } else if (session?.user?.role !== 'super_admin') {
-      router.push('/dashboard')
+      router.push('/login')
     }
-  }, [session, status, router])
+  }, [status, router])
 
-  // Initial data fetch
+  // Fetch companies
+  const fetchCompanies = async () => {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        pageSize: pageSize.toString(),
+        search: searchQuery,
+        ...(selectedTypes.length && { type: selectedTypes.join(',') }),
+        ...(selectedStatuses.length && { status: selectedStatuses.join(',') })
+      })
+
+      const response = await fetch(`/api/companies?${params}`)
+      if (!response.ok) throw new Error('Failed to fetch companies')
+      
+      const data = await response.json()
+      setCompanies(data.companies)
+      setTotalPages(data.totalPages)
+    } catch (error) {
+      console.error('Error fetching companies:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to fetch companies'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    if (session?.user?.role === 'super_admin') {
+    if (session?.user) {
       fetchCompanies()
     }
-  }, [session, fetchCompanies])
+  }, [session, currentPage, pageSize, searchQuery, selectedTypes, selectedStatuses])
 
-  // Get unique industries for filter
-  const industries = useMemo(() => {
-    const uniqueIndustries = new Set<string>()
-    companies.forEach(company => {
-      if (company.industry) {
-        uniqueIndustries.add(company.industry)
-      }
+  const handleCreateCompany = async () => {
+    setCreateModalOpen(false)
+    await fetchCompanies()
+    showToast({
+      type: 'success',
+      title: 'Success',
+      message: 'Company created successfully'
     })
-    return Array.from(uniqueIndustries).sort()
-  }, [companies])
+  }
+
+  const handleEditCompany = async () => {
+    setEditModalOpen(false)
+    setSelectedCompany(null)
+    await fetchCompanies()
+    showToast({
+      type: 'success',
+      title: 'Success',
+      message: 'Company updated successfully'
+    })
+  }
+
+  const handleEdit = (company: Company) => {
+    setSelectedCompany(company)
+    setEditModalOpen(true)
+  }
 
   if (status === 'loading' || loading) {
     return (
@@ -77,55 +105,75 @@ export default function CompaniesPage() {
     )
   }
 
-  if (!session || session.user.role !== 'super_admin') {
+  if (!session) {
     return null
   }
 
   return (
     <div>
       <div className="px-4 sm:px-6 lg:px-8 py-8">
-        <CompanyHeader />
-
-        <div className="bg-white/70 backdrop-blur-sm shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <CompanyFilters
-              selectedTypes={selectedTypes}
-              selectedStatuses={selectedStatuses}
-              selectedIndustries={selectedIndustries}
-              searchQuery={searchQuery}
-              onTypeChange={handleTypeChange}
-              onStatusChange={handleStatusChange}
-              onIndustryChange={handleIndustryChange}
-              onSearchChange={handleSearch}
-              onExport={handleExport}
-              onCreate={handleCreateCompany}
-              industries={industries}
-            />
-
-            <CompanyTable
-              companies={companies}
-              sortField={sortField}
-              sortDirection={sortDirection}
-              currentPage={pagination.currentPage}
-              pageSize={pagination.pageSize}
-              totalPages={pagination.totalPages}
-              actionMenuOpen={actionMenuOpen}
-              onSort={handleSort}
-              onPageChange={handlePageChange}
-              onAction={handleAction}
-              onMenuToggle={handleMenuToggle}
-              onMenuClick={handleMenuClick}
-            />
+        <div className="sm:flex sm:items-center">
+          <div className="sm:flex-auto">
+            <h1 className="text-2xl font-semibold text-gray-900">Companies</h1>
+            <p className="mt-2 text-sm text-gray-700">
+              A list of all companies including their name, status, and other details.
+            </p>
           </div>
+          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+            <button
+              type="button"
+              onClick={() => setCreateModalOpen(true)}
+              className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
+            >
+              Add Company
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <CompanyFilters
+            searchQuery={searchQuery}
+            selectedTypes={selectedTypes}
+            selectedStatuses={selectedStatuses}
+            onSearchChange={setSearchQuery}
+            onTypeChange={setSelectedTypes}
+            onStatusChange={setSelectedStatuses}
+          />
+
+          <CompanyTable
+            companies={companies}
+            onEdit={handleEdit}
+          />
+
+          {totalPages > 1 && (
+            <div className="mt-6">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {selectedCompany && (
+      {createModalOpen && (
+        <CompanyCreateModal
+          isOpen={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          onSuccess={handleCreateCompany}
+        />
+      )}
+
+      {editModalOpen && selectedCompany && (
         <CompanyEditModal
-          company={selectedCompany}
           isOpen={editModalOpen}
-          onClose={handleModalClose}
-          onUpdate={handleUpdateCompany}
+          company={selectedCompany}
+          onClose={() => {
+            setEditModalOpen(false)
+            setSelectedCompany(null)
+          }}
+          onSuccess={handleEditCompany}
         />
       )}
     </div>

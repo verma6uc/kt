@@ -1,120 +1,68 @@
 "use client"
 
-import { Company } from "@/types/company"
-import clsx from "clsx"
+import { CompanyBusinessInfo as CompanyBusinessInfoType, CompanyBusinessInfoProps } from '@/types/company-forms'
+import { Multiselect } from '@/components/ui/multiselect'
 
-interface CompanyBusinessInfoProps {
-  type: Company['type']
-  status: Company['status']
-  onTypeChange: (value: Company['type']) => void
-  onStatusChange: (value: Company['status']) => void
-  disabled?: boolean
-  currentStatus: Company['status']
-}
+const statusOptions = [
+  { label: 'Active', value: 'active' },
+  { label: 'Inactive', value: 'inactive' },
+  { label: 'Suspended', value: 'suspended' },
+  { label: 'Pending Setup', value: 'pending_setup' }
+]
 
-export function CompanyBusinessInfo({
-  type,
-  status,
-  onTypeChange,
-  onStatusChange,
-  disabled,
-  currentStatus
-}: CompanyBusinessInfoProps) {
-  const canChangeStatus = (newStatus: Company['status']): boolean => {
-    if (currentStatus === 'archived') return false
-    
-    switch (currentStatus) {
-      case 'active':
-        return newStatus === 'suspended' || newStatus === 'archived'
-      case 'suspended':
-        return newStatus === 'active' || newStatus === 'archived'
-      case 'pending_setup':
-        return newStatus === 'active'
-      case 'inactive':
-        return newStatus === 'archived'
-      default:
-        return false
-    }
-  }
+const industryOptions = [
+  { label: 'Technology', value: 'technology' },
+  { label: 'Healthcare', value: 'healthcare' },
+  { label: 'Finance', value: 'finance' },
+  { label: 'Education', value: 'education' },
+  { label: 'Manufacturing', value: 'manufacturing' },
+  { label: 'Retail', value: 'retail' },
+  { label: 'Other', value: 'other' }
+]
 
-  const getStatusDescription = (status: Company['status']): string => {
-    switch (status) {
-      case 'active':
-        return 'Company is fully operational with all features enabled.'
-      case 'suspended':
-        return 'Temporarily disable company access. All user access will be blocked but data is preserved.'
-      case 'inactive':
-        return 'Company is no longer active. All access is disabled.'
-      case 'archived':
-        return 'Permanently archive the company. This action cannot be undone.'
-      case 'pending_setup':
-        return 'Company is in initial setup phase.'
-      default:
-        return ''
-    }
-  }
-
-  const getStatusWarning = (newStatus: Company['status']): string | null => {
-    switch (newStatus) {
-      case 'suspended':
-        return 'This will temporarily block all user access to the company.'
-      case 'archived':
-        return 'This action is permanent and cannot be undone. The company will be archived and all access will be permanently disabled.'
-      default:
-        return null
-    }
+export function CompanyBusinessInfo({ initialData, onChange }: CompanyBusinessInfoProps) {
+  const handleChange = (field: keyof CompanyBusinessInfoType, value: string | number) => {
+    onChange({ ...initialData, [field]: value })
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="space-y-6">
       <div>
-        <label htmlFor="type" className="block text-sm font-medium text-gray-700">
-          Type
-        </label>
-        <select
-          id="type"
-          value={type}
-          onChange={(e) => onTypeChange(e.target.value as Company['type'])}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          required
-          disabled={disabled}
-        >
-          <option value="small_business">Small Business</option>
-          <option value="enterprise">Enterprise</option>
-          <option value="startup">Startup</option>
-        </select>
+        <Multiselect
+          label="Industry"
+          options={industryOptions}
+          value={initialData.industry ? [initialData.industry] : []}
+          onChange={(values) => handleChange('industry', values[0])}
+          placeholder="Select industry"
+        />
       </div>
 
       <div>
-        <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-          Status
+        <label htmlFor="employee_count" className="block text-sm font-medium text-gray-700">
+          Number of Employees
         </label>
-        <select
-          id="status"
-          value={status}
-          onChange={(e) => onStatusChange(e.target.value as Company['status'])}
-          className={clsx(
-            "mt-1 block w-full rounded-md border px-3 py-2 text-gray-900 focus:outline-none focus:ring-1",
-            currentStatus === 'archived'
-              ? "border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed"
-              : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-          )}
-          disabled={disabled || currentStatus === 'archived'}
-        >
-          <option value="active" disabled={!canChangeStatus('active')}>Active</option>
-          <option value="suspended" disabled={!canChangeStatus('suspended')}>Suspended</option>
-          <option value="inactive" disabled={!canChangeStatus('inactive')}>Inactive</option>
-          <option value="archived" disabled={!canChangeStatus('archived')}>Archived</option>
-          <option value="pending_setup" disabled>Pending Setup</option>
-        </select>
-        <p className="mt-1 text-sm text-gray-500">
-          {getStatusDescription(status)}
+        <div className="mt-1">
+          <input
+            type="number"
+            id="employee_count"
+            value={initialData.employee_count || ''}
+            onChange={(e) => handleChange('employee_count', parseInt(e.target.value) || 0)}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+        </div>
+      </div>
+
+      <div>
+        <Multiselect
+          label="Status"
+          options={statusOptions}
+          value={[initialData.status || 'pending_setup']}
+          onChange={(values) => handleChange('status', values[0])}
+          placeholder="Select status"
+        />
+        <p className="mt-2 text-sm text-gray-500">
+          The company status affects what features and capabilities are available.
         </p>
-        {getStatusWarning(status) && (
-          <p className="mt-1 text-sm text-amber-600">
-            ⚠️ {getStatusWarning(status)}
-          </p>
-        )}
       </div>
     </div>
   )

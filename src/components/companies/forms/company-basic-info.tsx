@@ -1,69 +1,91 @@
 "use client"
 
-interface CompanyBasicInfoProps {
-  name: string
-  identifier: string
-  description: string
-  onNameChange: (value: string) => void
-  onIdentifierChange: (value: string) => void
-  onDescriptionChange: (value: string) => void
-  disabled?: boolean
-}
+import { CompanyBasicInfo as CompanyBasicInfoType, CompanyBasicInfoProps } from '@/types/company-forms'
+import { Multiselect } from '@/components/ui/multiselect'
 
-export function CompanyBasicInfo({
-  name,
-  identifier,
-  description,
-  onNameChange,
-  onIdentifierChange,
-  onDescriptionChange,
-  disabled
-}: CompanyBasicInfoProps) {
+const typeOptions = [
+  { label: 'Enterprise', value: 'enterprise' },
+  { label: 'Small Business', value: 'small_business' },
+  { label: 'Startup', value: 'startup' }
+]
+
+export function CompanyBasicInfo({ initialData, onChange }: CompanyBasicInfoProps) {
+  const handleChange = (field: keyof CompanyBasicInfoType, value: string) => {
+    onChange({ ...initialData, [field]: value })
+  }
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-            Company Name
-          </label>
+    <div className="space-y-6">
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+          Company Name
+        </label>
+        <div className="mt-1">
           <input
             type="text"
             id="name"
-            value={name}
-            onChange={(e) => onNameChange(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            required
-            disabled={disabled}
+            value={initialData.name || ''}
+            onChange={(e) => handleChange('name', e.target.value)}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
           />
         </div>
+      </div>
 
-        <div>
-          <label htmlFor="identifier" className="block text-sm font-medium text-gray-700">
-            Identifier
-          </label>
+      <div>
+        <label htmlFor="identifier" className="block text-sm font-medium text-gray-700">
+          Company Identifier
+        </label>
+        <div className="mt-1">
           <input
             type="text"
             id="identifier"
-            value={identifier}
-            onChange={(e) => onIdentifierChange(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            required
-            disabled={disabled}
+            value={initialData.identifier || ''}
+            onChange={(e) => handleChange('identifier', e.target.value)}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
           />
         </div>
+        <p className="mt-2 text-sm text-gray-500">
+          A unique identifier for your company. This will be used in URLs and API calls.
+        </p>
       </div>
 
       <div>
         <label htmlFor="description" className="block text-sm font-medium text-gray-700">
           Description
         </label>
-        <textarea
-          id="description"
-          value={description}
-          onChange={(e) => onDescriptionChange(e.target.value)}
-          rows={3}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={disabled}
+        <div className="mt-1">
+          <textarea
+            id="description"
+            rows={3}
+            value={initialData.description || ''}
+            onChange={(e) => handleChange('description', e.target.value)}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="website" className="block text-sm font-medium text-gray-700">
+          Website
+        </label>
+        <div className="mt-1">
+          <input
+            type="url"
+            id="website"
+            value={initialData.website || ''}
+            onChange={(e) => handleChange('website', e.target.value)}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+        </div>
+      </div>
+
+      <div>
+        <Multiselect
+          label="Company Type"
+          options={typeOptions}
+          value={[initialData.type || 'small_business']}
+          onChange={(values) => handleChange('type', values[0])}
+          placeholder="Select company type"
         />
       </div>
     </div>

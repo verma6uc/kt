@@ -1,48 +1,48 @@
 "use client"
 
-interface CompanyRegistrationInfoProps {
-  taxId: string
-  registrationNumber: string
-  onTaxIdChange: (value: string) => void
-  onRegistrationNumberChange: (value: string) => void
-  disabled?: boolean
-}
+import { CompanyRegistrationInfo as CompanyRegistrationInfoType, CompanyRegistrationInfoProps } from '@/types/company-forms'
 
-export function CompanyRegistrationInfo({
-  taxId,
-  registrationNumber,
-  onTaxIdChange,
-  onRegistrationNumberChange,
-  disabled
-}: CompanyRegistrationInfoProps) {
+export function CompanyRegistrationInfo({ initialData, onChange }: CompanyRegistrationInfoProps) {
+  const handleChange = (field: keyof CompanyRegistrationInfoType, value: string) => {
+    onChange({ ...initialData, [field]: value })
+  }
+
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="space-y-6">
       <div>
-        <label htmlFor="taxId" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="tax_id" className="block text-sm font-medium text-gray-700">
           Tax ID
         </label>
-        <input
-          type="text"
-          id="taxId"
-          value={taxId}
-          onChange={(e) => onTaxIdChange(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={disabled}
-        />
+        <div className="mt-1">
+          <input
+            type="text"
+            id="tax_id"
+            value={initialData.tax_id || ''}
+            onChange={(e) => handleChange('tax_id', e.target.value)}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+        </div>
+        <p className="mt-2 text-sm text-gray-500">
+          Your company's tax identification number.
+        </p>
       </div>
 
       <div>
-        <label htmlFor="registrationNumber" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="registration_number" className="block text-sm font-medium text-gray-700">
           Registration Number
         </label>
-        <input
-          type="text"
-          id="registrationNumber"
-          value={registrationNumber}
-          onChange={(e) => onRegistrationNumberChange(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={disabled}
-        />
+        <div className="mt-1">
+          <input
+            type="text"
+            id="registration_number"
+            value={initialData.registration_number || ''}
+            onChange={(e) => handleChange('registration_number', e.target.value)}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+        </div>
+        <p className="mt-2 text-sm text-gray-500">
+          Your company's official registration or incorporation number.
+        </p>
       </div>
     </div>
   )

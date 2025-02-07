@@ -1,69 +1,41 @@
 "use client"
 
-import { company_type, company_status } from '@prisma/client'
-import { Download, Plus, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { Multiselect } from '@/components/ui/multiselect'
-import { useToast } from '@/components/providers/toast-provider'
-import { CompanyCreateModal } from './company-create-modal'
-import { useState } from 'react'
 
 interface CompanyFiltersProps {
+  searchQuery: string
   selectedTypes: string[]
   selectedStatuses: string[]
-  selectedIndustries: string[]
-  searchQuery: string
+  onSearchChange: (query: string) => void
   onTypeChange: (types: string[]) => void
   onStatusChange: (statuses: string[]) => void
-  onIndustryChange: (industries: string[]) => void
-  onSearchChange: (query: string) => void
-  onExport: () => void
-  onCreate: (data: FormData) => Promise<void>
-  industries: string[]
 }
 
-const typeOptions = Object.values(company_type).map(type => ({
-  label: type.charAt(0).toUpperCase() + type.slice(1).toLowerCase().replace('_', ' '),
-  value: type
-}))
+const typeOptions = [
+  { label: 'Enterprise', value: 'enterprise' },
+  { label: 'Small Business', value: 'small_business' },
+  { label: 'Startup', value: 'startup' }
+]
 
-const statusOptions = Object.values(company_status).map(status => ({
-  label: status.charAt(0).toUpperCase() + status.slice(1).toLowerCase().replace('_', ' '),
-  value: status
-}))
+const statusOptions = [
+  { label: 'Active', value: 'active' },
+  { label: 'Inactive', value: 'inactive' },
+  { label: 'Suspended', value: 'suspended' },
+  { label: 'Pending Setup', value: 'pending_setup' }
+]
 
 export function CompanyFilters({
+  searchQuery,
   selectedTypes,
   selectedStatuses,
-  selectedIndustries,
-  searchQuery,
-  onTypeChange,
-  onStatusChange,
-  onIndustryChange,
   onSearchChange,
-  onExport,
-  onCreate,
-  industries
+  onTypeChange,
+  onStatusChange
 }: CompanyFiltersProps) {
-  const [createModalOpen, setCreateModalOpen] = useState(false)
-  const { showToast } = useToast()
-
-  const industryOptions = industries.map(industry => ({
-    label: industry,
-    value: industry
-  }))
-
-  const handleExport = () => {
-    onExport()
-    showToast({
-      type: 'success',
-      title: 'Export Started',
-      message: 'Your export file will be downloaded shortly'
-    })
-  }
-
   return (
     <div className="space-y-6">
-      {/* Header with Search and Actions */}
+      {/* Search */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="relative flex-1 max-w-md w-full">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -77,28 +49,12 @@ export function CompanyFilters({
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white/50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-shadow duration-200"
           />
         </div>
-        <div className="flex gap-3 sm:gap-4 w-full sm:w-auto">
-          <button
-            onClick={handleExport}
-            className="flex-1 sm:flex-none inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 whitespace-nowrap"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </button>
-          <button
-            onClick={() => setCreateModalOpen(true)}
-            className="flex-1 sm:flex-none inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 whitespace-nowrap"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Company
-          </button>
-        </div>
       </div>
 
-      {/* Filters Section */}
+      {/* Filters */}
       <div className="bg-white/70 backdrop-blur-sm shadow-sm rounded-lg p-4 border border-gray-200">
         <h3 className="text-sm font-medium text-gray-700 mb-4">Filters</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Multiselect
             label="Type"
             options={typeOptions}
@@ -113,21 +69,8 @@ export function CompanyFilters({
             onChange={onStatusChange}
             placeholder="Select statuses"
           />
-          <Multiselect
-            label="Industry"
-            options={industryOptions}
-            value={selectedIndustries}
-            onChange={onIndustryChange}
-            placeholder="Select industries"
-          />
         </div>
       </div>
-
-      <CompanyCreateModal
-        isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        onCreate={onCreate}
-      />
     </div>
   )
 }
