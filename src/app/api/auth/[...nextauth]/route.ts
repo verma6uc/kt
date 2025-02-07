@@ -4,18 +4,18 @@ import { AuthService } from "@/lib/auth-service"
 import { NotificationService } from "@/lib/notification-service"
 import { headers } from "next/headers"
 
-function getRequestHeaders() {
+async function getRequestHeaders() {
   try {
-    const headersList = headers()
+    const headersList = await headers();
     return {
-      ipAddress: headersList.has('x-forwarded-for') ? headersList.get('x-forwarded-for') : undefined,
-      userAgent: headersList.has('user-agent') ? headersList.get('user-agent') : undefined
-    }
+      ipAddress: headersList.has('x-forwarded-for') ? (headersList.get('x-forwarded-for') ?? undefined) : undefined,
+      userAgent: headersList.has('user-agent') ? (headersList.get('user-agent') ?? undefined) : undefined
+    };
   } catch {
     return {
       ipAddress: undefined,
       userAgent: undefined
-    }
+    };
   }
 }
 
@@ -40,7 +40,7 @@ const handler = NextAuth({
       await AuthService.resetFailedAttempts(user.id)
 
       // Log successful login
-      const { ipAddress, userAgent } = getRequestHeaders()
+      const { ipAddress, userAgent } = await getRequestHeaders()
 
       await AuthService.logAudit({
         userId: user.id,
@@ -61,7 +61,7 @@ const handler = NextAuth({
     async signOut({ session, token }) {
       if (token) {
         // Log logout
-        const { ipAddress, userAgent } = getRequestHeaders()
+        const { ipAddress, userAgent } = await getRequestHeaders()
 
         await AuthService.logAudit({
           userId: token.id,
