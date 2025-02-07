@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import { notification_priority } from '@prisma/client'
 import { NotificationStatus, NotificationWithUser } from '@/types/notification'
 
 export class NotificationService {
@@ -77,7 +78,7 @@ export class NotificationService {
     companyId: string
     title: string
     message: string
-    priority: 'low' | 'medium' | 'high' | 'urgent'
+    priority: notification_priority
     link?: string
   }) {
     return prisma.notification.create({
@@ -100,6 +101,47 @@ export class NotificationService {
         }
       }
     })
+  }
+
+  static async notifySuperAdmins({
+    companyId,
+    title,
+    message,
+    priority,
+    link
+  }: {
+    companyId: string
+    title: string
+    message: string
+    priority: notification_priority
+    link?: string
+  }) {
+    // Get all super admins
+    const superAdmins = await prisma.user.findMany({
+      where: {
+        role: 'super_admin',
+        status: 'active'
+      },
+      select: {
+        id: true
+      }
+    })
+
+    // Create notifications for each super admin
+    const notifications = await Promise.all(
+      superAdmins.map(admin =>
+        this.createNotification({
+          userId: admin.id.toString(),
+          companyId,
+          title,
+          message,
+          priority,
+          link
+        })
+      )
+    )
+
+    return notifications
   }
 
   static async markAllAsRead(userId: string, companyId: string) {

@@ -33,14 +33,12 @@ export default function LoginPage() {
 
     if (!email) {
       newErrors.email = 'Email is required'
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = 'Please enter a valid email address'
     }
 
     if (!password) {
       newErrors.password = 'Password is required'
-    } else if (password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters'
     }
 
     setErrors(newErrors)
@@ -79,8 +77,8 @@ export default function LoginPage() {
           default:
             setErrors({ general: "An error occurred. Please try again." })
         }
-      } else {
-        router.push(callbackUrl)
+      } else if (result?.url) {
+        router.push(result.url)
       }
     } catch (error) {
       setErrors({ general: "An error occurred. Please try again." })

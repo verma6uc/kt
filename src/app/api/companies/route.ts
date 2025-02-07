@@ -3,9 +3,146 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { writeFile, mkdir } from 'fs/promises'
-import { company_type, company_status, audit_action, Prisma } from '@prisma/client'
+import { company_type, company_status, audit_action, notification_priority, Prisma } from '@prisma/client'
 import { nanoid } from 'nanoid'
 import path from 'path'
+import { NotificationService } from '@/lib/notification-service'
+
+export async function POST(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return new NextResponse('Unauthorized', { status: 401 })
+    }
+
+    if (session.user.role !== 'super_admin') {
+      return new NextResponse('Forbidden', { status: 403 })
+    }
+
+    const formData = await request.formData()
+    const name = formData.get('name') as string
+    const logo = formData.get('logo') as File | null
+
+    if (!name) {
+      return new NextResponse('Company name is required', { status: 400 })
+    }
+
+    // Generate unique identifier
+    const identifier = nanoid(10).toUpperCase()
+
+    // Check if identifier is unique
+    const existingCompany = await prisma.company.findFirst({
+      where: {
+        OR: [
+          { identifier },
+          { name: { equals: name, mode: Prisma.QueryMode.insensitive } }
+        ]
+      }
+    })
+
+    if (existingCompany) {
+      if (existingCompany.name.toLowerCase() === name.toLowerCase()) {
+        return new NextResponse('Company name already exists', { status: 400 })
+      }
+      // If it's an identifier collision (very unlikely), generate a new one
+      return new NextResponse('Please try again', { status: 409 })
+    }
+
+    let logoUrl: string | undefined
+
+    if (logo) {
+      // Ensure uploads directory exists
+      const uploadsDir = path.join(process.cwd(), 'public/uploads')
+      await mkdir(uploadsDir, { recursive: true })
+
+      // Save logo file
+      const bytes = await logo.arrayBuffer()
+      const buffer = Buffer.from(bytes)
+      const ext = logo.name.split('.').pop()
+      const filename = `company-${identifier}-${Date.now()}.${ext}`
+      const filepath = path.join(uploadsDir, filename)
+      await writeFile(filepath, buffer)
+      logoUrl = `/uploads/${filename}`
+    }
+
+    // Create company
+    const company = await prisma.company.create({
+      data: {
+        name,
+        identifier,
+        logo_url: logoUrl,
+        status: 'pending_setup' as company_status,
+        type: 'small_business' as company_type,
+        security_config: {
+          create: {
+            password_history_limit: 3,
+            password_expiry_days: 90,
+            max_failed_attempts: 5,
+            session_timeout_mins: 60,
+            enforce_single_session: false
+          }
+        }
+      },
+      include: {
+        security_config: true
+      }
+    })
+
+    // Create detailed audit log
+    const auditDetails = [
+      `Company created: ${company.name} (${company.identifier})`,
+      `Initial Status: ${company.status}`,
+      `Type: ${company.type}`,
+      `Logo: ${company.logo_url ? 'Uploaded' : 'Not provided'}`,
+      'Security Configuration:',
+      `- Password History Limit: ${company.security_config?.password_history_limit}`,
+      `- Password Expiry Days: ${company.security_config?.password_expiry_days}`,
+      `- Max Failed Attempts: ${company.security_config?.max_failed_attempts}`,
+      `- Session Timeout (mins): ${company.security_config?.session_timeout_mins}`,
+      `- Single Session: ${company.security_config?.enforce_single_session ? 'Enforced' : 'Not enforced'}`
+    ].join('\n')
+
+    await prisma.audit_log.create({
+      data: {
+        user_id: parseInt(session.user.id),
+        company_id: company.id,
+        action: audit_action.create,
+        details: auditDetails,
+        ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null,
+        user_agent: request.headers.get('user-agent') || null
+      }
+    })
+
+    // Get all super admins
+    const superAdmins = await prisma.user.findMany({
+      where: {
+        role: 'super_admin',
+        status: 'active'
+      }
+    })
+
+    // Create notifications for each super admin
+    await Promise.all(superAdmins.map(admin => 
+      prisma.notification.create({
+        data: {
+          user_id: admin.id,
+          company_id: company.id,
+          title: 'New Company Created',
+          message: `${session.user.name || 'A super admin'} created a new company: ${company.name} (${company.identifier})`,
+          priority: 'medium' as notification_priority,
+          status: 'unread',
+          link: `/dashboard/companies?company=${company.id}`
+        }
+      })
+    ))
+
+    return NextResponse.json(company)
+  } catch (error) {
+    console.error('Error creating company:', error)
+    return new NextResponse('Internal Server Error', { status: 500 })
+  }
+}
 
 export async function GET(request: Request) {
   try {
@@ -37,9 +174,9 @@ export async function GET(request: Request) {
         // Search
         search ? {
           OR: [
-            { name: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
-            { identifier: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
-            { industry: { contains: search, mode: 'insensitive' as Prisma.QueryMode } }
+            { name: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { identifier: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { industry: { contains: search, mode: Prisma.QueryMode.insensitive } }
           ]
         } : {},
         // Type filter
@@ -52,18 +189,9 @@ export async function GET(request: Request) {
     }
 
     // Build order by clause
-    let orderBy: Prisma.companyOrderByWithRelationInput = {}
-    if (sortField === 'users') {
-      orderBy = {
-        users: {
-          _count: sortDirection
-        }
-      }
-    } else {
-      orderBy = {
-        [sortField]: sortDirection
-      }
-    }
+    const orderBy: Prisma.companyOrderByWithRelationInput = sortField === 'users' 
+      ? { users: { _count: sortDirection } }
+      : { [sortField]: sortDirection }
 
     // Get total count for pagination
     const totalCount = await prisma.company.count({
@@ -122,9 +250,9 @@ export async function GET(request: Request) {
           company.type,
           company.status,
           company.industry || '',
-          company._count.users,
-          company._count.api_metrics,
-          company._count.system_metrics
+          (company as any)._count.users,
+          (company as any)._count.api_metrics,
+          (company as any)._count.system_metrics
         ].join(','))
       ]
 
@@ -147,106 +275,6 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error('Error fetching companies:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    if (session.user.role !== 'super_admin') {
-      return new NextResponse('Forbidden', { status: 403 })
-    }
-
-    const formData = await request.formData()
-    const name = formData.get('name') as string
-    const logo = formData.get('logo') as File | null
-
-    if (!name) {
-      return new NextResponse('Company name is required', { status: 400 })
-    }
-
-    // Generate unique identifier
-    const identifier = nanoid(10).toUpperCase()
-
-    // Check if identifier is unique
-    const existingCompany = await prisma.company.findFirst({
-      where: {
-        OR: [
-          { identifier },
-          { name: { equals: name, mode: 'insensitive' as Prisma.QueryMode } }
-        ]
-      }
-    })
-
-    if (existingCompany) {
-      if (existingCompany.name.toLowerCase() === name.toLowerCase()) {
-        return new NextResponse('Company name already exists', { status: 400 })
-      }
-      // If it's an identifier collision (very unlikely), generate a new one
-      return new NextResponse('Please try again', { status: 409 })
-    }
-
-    let logoUrl: string | undefined
-
-    if (logo) {
-      // Ensure uploads directory exists
-      const uploadsDir = path.join(process.cwd(), 'public/uploads')
-      await mkdir(uploadsDir, { recursive: true })
-
-      // Save logo file
-      const bytes = await logo.arrayBuffer()
-      const buffer = Buffer.from(bytes)
-      const ext = logo.name.split('.').pop()
-      const filename = `company-${identifier}-${Date.now()}.${ext}`
-      const filepath = path.join(uploadsDir, filename)
-      await writeFile(filepath, buffer)
-      logoUrl = `/uploads/${filename}`
-    }
-
-    // Create company
-    const company = await prisma.company.create({
-      data: {
-        name,
-        identifier,
-        logo_url: logoUrl,
-        status: 'pending_setup' as company_status,
-        type: 'small_business' as company_type,
-        security_config: {
-          create: {
-            password_history_limit: 3,
-            password_expiry_days: 90,
-            max_failed_attempts: 5,
-            session_timeout_mins: 60,
-            enforce_single_session: false
-          }
-        }
-      },
-      include: {
-        security_config: true
-      }
-    })
-
-    // Create audit log
-    await prisma.audit_log.create({
-      data: {
-        user_id: parseInt(session.user.id),
-        company_id: company.id,
-        action: audit_action.create,
-        details: `Company created: ${company.name} (${company.identifier})`,
-        ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null,
-        user_agent: request.headers.get('user-agent') || null
-      }
-    })
-
-    return NextResponse.json(company)
-  } catch (error) {
-    console.error('Error creating company:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 }
@@ -289,9 +317,9 @@ export async function PATCH(request: Request) {
           
           const ext = logo.name.split('.').pop()
           const filename = `company-${id}-${Date.now()}.${ext}`
-          const path = `public/uploads/${filename}`
+          const filepath = path.join('public/uploads', filename)
           
-          await writeFile(path, buffer)
+          await writeFile(filepath, buffer)
           logoUrl = `/uploads/${filename}`
         } catch (error) {
           console.error('Error uploading logo:', error)
