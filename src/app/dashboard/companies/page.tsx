@@ -4,7 +4,6 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo } from "react"
 import { CompanyHeader } from "@/components/companies/company-header"
-import { CompanySearch } from "@/components/companies/company-search"
 import { CompanyTable } from "@/components/companies/company-table"
 import { CompanyFilters } from "@/components/companies/company-filters"
 import CompanyEditModal from "@/components/companies/company-edit-modal"
@@ -88,18 +87,15 @@ export default function CompaniesPage() {
 
         <div className="bg-white/70 backdrop-blur-sm shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
-            <CompanySearch
-              value={searchQuery}
-              onChange={handleSearch}
-            />
-
             <CompanyFilters
               selectedTypes={selectedTypes}
               selectedStatuses={selectedStatuses}
               selectedIndustries={selectedIndustries}
+              searchQuery={searchQuery}
               onTypeChange={handleTypeChange}
               onStatusChange={handleStatusChange}
               onIndustryChange={handleIndustryChange}
+              onSearchChange={handleSearch}
               onExport={handleExport}
               industries={industries}
             />
