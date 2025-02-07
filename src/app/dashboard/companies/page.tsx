@@ -1,10 +1,11 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { useEffect, useState, useMemo } from "react"
-import { Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Mail, User, Users, MoreVertical } from "lucide-react"
+import { useRouter, usePathname } from "next/navigation"
+import { useEffect, useState, useCallback, useMemo } from "react"
+import { Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Mail, User, Users, MoreVertical, Edit, Archive, Ban } from "lucide-react"
 import clsx from "clsx"
+import CompanyEditModal from "@/components/companies/company-edit-modal"
 import { Company } from "@/types/company"
 
 const ITEMS_PER_PAGE = 10
@@ -15,9 +16,29 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [sortField, setSortField] = useState<keyof Company | '_count.users'>('name')
+  const [sortField, setSortField] = useState<keyof Company | 'users'>('name')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
+  const [actionMenuOpen, setActionMenuOpen] = useState<number | null>(null)
   const [companies, setCompanies] = useState<Company[]>([])
+
+  // Handle click outside for action menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (actionMenuOpen !== null) {
+        setActionMenuOpen(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [actionMenuOpen])
+
+  // Stop propagation for menu clicks
+  const handleMenuClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+  }
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -46,6 +67,32 @@ export default function CompaniesPage() {
     }
   }, [session])
 
+  const handleUpdateCompany = useCallback(async (data: Partial<Company>) => {
+    if (!selectedCompany) return
+
+    try {
+      const response = await fetch('/api/companies', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: selectedCompany.id,
+          ...data,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to update company')
+
+      // Refresh companies list
+      const companiesResponse = await fetch('/api/companies')
+      const updatedCompanies = await companiesResponse.json()
+      setCompanies(updatedCompanies)
+    } catch (error) {
+      throw new Error('Failed to update company')
+    }
+  }, [selectedCompany])
+
   const filteredAndSortedCompanies = useMemo(() => {
     return [...companies]
       .filter(company => {
@@ -59,7 +106,7 @@ export default function CompaniesPage() {
         )
       })
       .sort((a, b) => {
-        if (sortField === '_count.users') {
+        if (sortField === 'users') {
           return sortDirection === 'asc' 
             ? a._count.users - b._count.users
             : b._count.users - a._count.users
@@ -68,9 +115,15 @@ export default function CompaniesPage() {
         const aValue = a[sortField as keyof Company]
         const bValue = b[sortField as keyof Company]
 
-        if (aValue === null) return sortDirection === 'asc' ? -1 : 1
-        if (bValue === null) return sortDirection === 'asc' ? 1 : -1
+        // Handle undefined or null values
+        if (!aValue && !bValue) return 0
+        if (!aValue) return sortDirection === 'asc' ? -1 : 1
+        if (!bValue) return sortDirection === 'asc' ? 1 : -1
 
+        // Convert dates to timestamps for comparison
+        if (aValue instanceof Date && bValue instanceof Date) {
+          return sortDirection === 'asc' ? aValue.getTime() - bValue.getTime() : bValue.getTime() - aValue.getTime()
+        }
         if (sortDirection === 'asc') {
           return aValue > bValue ? 1 : -1
         } else {
@@ -85,7 +138,7 @@ export default function CompaniesPage() {
     currentPage * ITEMS_PER_PAGE
   )
 
-  const handleSort = (field: typeof sortField) => {
+  const handleSort = (field: keyof Company) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
@@ -94,7 +147,7 @@ export default function CompaniesPage() {
     }
   }
 
-  const SortIcon = ({ field }: { field: typeof sortField }) => {
+  const SortIcon = ({ field }: { field: keyof Company }) => {
     if (sortField !== field) return null
     return sortDirection === 'asc' ? (
       <ChevronUp className="w-4 h-4 ml-1 inline" />
@@ -117,6 +170,18 @@ export default function CompaniesPage() {
 
   if (!session || session.user.role !== 'super_admin') {
     return null
+  }
+
+  const handleAction = (company: Company, action: 'edit' | 'suspend' | 'archive') => {
+    setSelectedCompany(company)
+    setEditModalOpen(true)
+    setActionMenuOpen(null)
+
+    if (action === 'suspend') {
+      handleUpdateCompany({ ...company, status: 'suspended' })
+    } else if (action === 'archive') {
+      handleUpdateCompany({ ...company, status: 'archived' })
+    }
   }
 
   return (
@@ -198,12 +263,12 @@ export default function CompaniesPage() {
                         <th
                           scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('_count.users')}
+                          onClick={() => handleSort('users')}
                         >
                           <div className="flex items-center">
                             <Users className="h-4 w-4 mr-1 text-blue-500" />
                             <span className="font-bold">Users</span>
-                            <SortIcon field="_count.users" />
+                            <SortIcon field="users" />
                           </div>
                         </th>
                         <th
@@ -224,14 +289,14 @@ export default function CompaniesPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {paginatedCompanies.map((company) => (
+                      {paginatedCompanies.map((company: Company) => (
                         <tr key={company.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             <div className="font-medium">{company.name}</div>
                             <div className="text-sm text-gray-500">{company.identifier}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {company.type.split('_').map(word => 
+                            {company.type.split('_').map((word: string) => 
                               word.charAt(0).toUpperCase() + word.slice(1)
                             ).join(' ')}
                           </td>
@@ -244,10 +309,11 @@ export default function CompaniesPage() {
                                   'bg-yellow-100 text-yellow-800': company.status === 'pending_setup',
                                   'bg-red-100 text-red-800': company.status === 'suspended',
                                   'bg-gray-100 text-gray-800': company.status === 'inactive',
+                                  'bg-purple-100 text-purple-800': company.status === 'archived',
                                 }
                               )}
                             >
-                              {company.status.split('_').map(word => 
+                              {company.status.split('_').map((word: string) => 
                                 word.charAt(0).toUpperCase() + word.slice(1)
                               ).join(' ')}
                             </span>
@@ -277,9 +343,62 @@ export default function CompaniesPage() {
                             ) : '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <button className="text-gray-400 hover:text-gray-500">
-                              <MoreVertical className="h-5 w-5" />
-                            </button>
+                            <div className="relative">
+                              <button 
+                                className={clsx(
+                                  "text-gray-400 hover:text-gray-500",
+                                  actionMenuOpen === company.id && "text-gray-600"
+                                )}
+                                onClick={(e) => {
+                                  handleMenuClick(e)
+                                  setActionMenuOpen(actionMenuOpen === company.id ? null : company.id)
+                                }}
+                              >
+                                <MoreVertical className="h-5 w-5" aria-hidden="true" />
+                              </button>
+
+                              {actionMenuOpen === company.id && (
+                                <div className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                  <button
+                                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                    onClick={(e) => {
+                                      handleMenuClick(e)
+                                      handleAction(company, 'edit')
+                                    }}
+                                    disabled={company.status === 'archived'}
+                                  >
+                                    <Edit className="mr-3 h-4 w-4" />
+                                    Edit Details
+                                  </button>
+
+                                  {company.status === 'active' && (
+                                    <button
+                                      className="flex w-full items-center px-4 py-2 text-sm text-amber-700 hover:bg-amber-50"
+                                      onClick={(e) => {
+                                        handleMenuClick(e)
+                                        handleAction(company, 'suspend')
+                                      }}
+                                    >
+                                      <Ban className="mr-3 h-4 w-4" />
+                                      Suspend
+                                    </button>
+                                  )}
+
+                                  {(company.status === 'active' || company.status === 'suspended') && (
+                                    <button
+                                      className="flex w-full items-center px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                                      onClick={(e) => {
+                                        handleMenuClick(e)
+                                        handleAction(company, 'archive')
+                                      }}
+                                    >
+                                      <Archive className="mr-3 h-4 w-4" />
+                                      Archive
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -318,10 +437,22 @@ export default function CompaniesPage() {
                 </button>
               </div>
             </div>
-
           </div>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {selectedCompany && (
+        <CompanyEditModal
+          company={selectedCompany}
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false)
+            setSelectedCompany(null)
+          }}
+          onUpdate={handleUpdateCompany}
+        />
+      )}
     </div>
   )
 }

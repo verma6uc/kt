@@ -3,7 +3,13 @@ export interface Company {
   name: string
   identifier: string
   type: 'small_business' | 'enterprise' | 'startup'
-  status: 'pending_setup' | 'active' | 'suspended' | 'inactive'
+  status: 'pending_setup' | 'active' | 'suspended' | 'inactive' | 'archived'
+  logo_url?: string | null
+  description?: string | null
+  website?: string | null
+  tax_id?: string | null
+  registration_number?: string | null
+  employee_count?: number | null
   industry: string | null
   created_at: Date
   _count: {
