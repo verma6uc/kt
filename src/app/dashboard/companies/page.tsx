@@ -2,10 +2,11 @@
 
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { CompanyHeader } from "@/components/companies/company-header"
 import { CompanySearch } from "@/components/companies/company-search"
 import { CompanyTable } from "@/components/companies/company-table"
+import { CompanyFilters } from "@/components/companies/company-filters"
 import CompanyEditModal from "@/components/companies/company-edit-modal"
 import { useCompanyActions } from "@/hooks/use-company-actions"
 
@@ -23,6 +24,9 @@ export default function CompaniesPage() {
     sortField,
     sortDirection,
     searchQuery,
+    selectedTypes,
+    selectedStatuses,
+    selectedIndustries,
     handleAction,
     handleUpdateCompany,
     handleMenuClick,
@@ -31,6 +35,10 @@ export default function CompaniesPage() {
     handlePageChange,
     handleSearch,
     handleSort,
+    handleExport,
+    handleTypeChange,
+    handleStatusChange,
+    handleIndustryChange,
     fetchCompanies
   } = useCompanyActions()
 
@@ -49,6 +57,17 @@ export default function CompaniesPage() {
       fetchCompanies()
     }
   }, [session, fetchCompanies])
+
+  // Get unique industries for filter
+  const industries = useMemo(() => {
+    const uniqueIndustries = new Set<string>()
+    companies.forEach(company => {
+      if (company.industry) {
+        uniqueIndustries.add(company.industry)
+      }
+    })
+    return Array.from(uniqueIndustries).sort()
+  }, [companies])
 
   if (status === 'loading' || loading) {
     return (
@@ -72,6 +91,17 @@ export default function CompaniesPage() {
             <CompanySearch
               value={searchQuery}
               onChange={handleSearch}
+            />
+
+            <CompanyFilters
+              selectedTypes={selectedTypes}
+              selectedStatuses={selectedStatuses}
+              selectedIndustries={selectedIndustries}
+              onTypeChange={handleTypeChange}
+              onStatusChange={handleStatusChange}
+              onIndustryChange={handleIndustryChange}
+              onExport={handleExport}
+              industries={industries}
             />
 
             <CompanyTable

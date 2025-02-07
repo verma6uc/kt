@@ -24,18 +24,30 @@ export async function GET(request: Request) {
     const search = searchParams.get('search') || ''
     const sortField = searchParams.get('sortField') || 'name'
     const sortDirection = (searchParams.get('sortDirection') || 'asc') as 'asc' | 'desc'
+    const types = searchParams.getAll('types[]')
+    const statuses = searchParams.getAll('statuses[]')
+    const industries = searchParams.getAll('industries[]')
+    const isExport = searchParams.get('export') === 'true'
 
-    // Calculate pagination
-    const skip = (page - 1) * pageSize
-
-    // Build where clause for search
-    const whereClause: Prisma.companyWhereInput = search ? {
-      OR: [
-        { name: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
-        { identifier: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
-        { industry: { contains: search, mode: 'insensitive' as Prisma.QueryMode } }
+    // Build where clause for search and filters
+    const whereClause: Prisma.companyWhereInput = {
+      AND: [
+        // Search
+        search ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
+            { identifier: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
+            { industry: { contains: search, mode: 'insensitive' as Prisma.QueryMode } }
+          ]
+        } : {},
+        // Type filter
+        types.length > 0 ? { type: { in: types as company_type[] } } : {},
+        // Status filter
+        statuses.length > 0 ? { status: { in: statuses as company_status[] } } : {},
+        // Industry filter
+        industries.length > 0 ? { industry: { in: industries } } : {}
       ]
-    } : {}
+    }
 
     // Build order by clause
     let orderBy: Prisma.companyOrderByWithRelationInput = {}
@@ -60,8 +72,8 @@ export async function GET(request: Request) {
     const companies = await prisma.company.findMany({
       where: whereClause,
       orderBy,
-      skip,
-      take: pageSize,
+      skip: isExport ? 0 : (page - 1) * pageSize,
+      take: isExport ? undefined : pageSize,
       include: {
         _count: {
           select: {
@@ -94,6 +106,33 @@ export async function GET(request: Request) {
         }
       },
     })
+
+    // Handle export request
+    if (isExport) {
+      const csvRows = [
+        // CSV Header
+        ['ID', 'Name', 'Identifier', 'Type', 'Status', 'Industry', 'Users', 'API Metrics', 'System Metrics'].join(','),
+        // Data rows
+        ...companies.map(company => [
+          company.id,
+          `"${company.name}"`,
+          company.identifier,
+          company.type,
+          company.status,
+          company.industry || '',
+          company._count.users,
+          company._count.api_metrics,
+          company._count.system_metrics
+        ].join(','))
+      ]
+
+      return new NextResponse(csvRows.join('\n'), {
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="companies-${new Date().toISOString().split('T')[0]}.csv"`
+        }
+      })
+    }
 
     return NextResponse.json({
       companies,

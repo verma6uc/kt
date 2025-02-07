@@ -34,6 +34,9 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
   const [sortField, setSortField] = useState<keyof Company | 'users'>('name')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([])
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
+  const [selectedIndustries, setSelectedIndustries] = useState<string[]>([])
 
   const { showToast } = useToast()
 
@@ -42,11 +45,15 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
     pageSize = pagination.pageSize,
     search = searchQuery,
     sort = sortField,
-    direction = sortDirection
+    direction = sortDirection,
+    types = selectedTypes,
+    statuses = selectedStatuses,
+    industries = selectedIndustries,
+    isExport = false
   ) => {
     try {
       setLoading(true)
-      const queryParams = new URLSearchParams({
+      const params = new URLSearchParams({
         page: page.toString(),
         pageSize: pageSize.toString(),
         search,
@@ -54,9 +61,31 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
         sortDirection: direction
       })
 
-      const response = await fetch(`/api/companies?${queryParams}`)
+      // Add array parameters
+      types.forEach(type => params.append('types[]', type))
+      statuses.forEach(status => params.append('statuses[]', status))
+      industries.forEach(industry => params.append('industries[]', industry))
+
+      if (isExport) {
+        params.append('export', 'true')
+      }
+
+      const response = await fetch(`/api/companies?${params}`)
       if (!response.ok) throw new Error('Failed to fetch companies')
       
+      if (isExport) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `companies-${new Date().toISOString().split('T')[0]}.csv`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        return
+      }
+
       const data: CompanyResponse = await response.json()
       setCompanies(data.companies)
       setPagination(data.pagination)
@@ -70,7 +99,17 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
     } finally {
       setLoading(false)
     }
-  }, [pagination.currentPage, pagination.pageSize, searchQuery, sortField, sortDirection, showToast])
+  }, [
+    pagination.currentPage,
+    pagination.pageSize,
+    searchQuery,
+    sortField,
+    sortDirection,
+    selectedTypes,
+    selectedStatuses,
+    selectedIndustries,
+    showToast
+  ])
 
   const handleUpdateCompany = useCallback(async (data: CompanyUpdate, company?: Company) => {
     const targetCompany = company || selectedCompany
@@ -158,13 +197,13 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
   }, [])
 
   const handlePageChange = useCallback((page: number) => {
-    fetchCompanies(page, pagination.pageSize, searchQuery, sortField, sortDirection)
-  }, [fetchCompanies, pagination.pageSize, searchQuery, sortField, sortDirection])
+    fetchCompanies(page)
+  }, [fetchCompanies])
 
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query)
-    fetchCompanies(1, pagination.pageSize, query, sortField, sortDirection)
-  }, [fetchCompanies, pagination.pageSize, sortField, sortDirection])
+    fetchCompanies(1, pagination.pageSize, query)
+  }, [fetchCompanies, pagination.pageSize])
 
   const handleSort = useCallback((field: keyof Company | 'users') => {
     const newDirection = field === sortField && sortDirection === 'asc' ? 'desc' : 'asc'
@@ -172,6 +211,45 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
     setSortDirection(newDirection)
     fetchCompanies(pagination.currentPage, pagination.pageSize, searchQuery, field, newDirection)
   }, [fetchCompanies, pagination.currentPage, pagination.pageSize, searchQuery, sortField, sortDirection])
+
+  const handleExport = useCallback(() => {
+    fetchCompanies(
+      pagination.currentPage,
+      pagination.pageSize,
+      searchQuery,
+      sortField,
+      sortDirection,
+      selectedTypes,
+      selectedStatuses,
+      selectedIndustries,
+      true
+    )
+  }, [
+    fetchCompanies,
+    pagination.currentPage,
+    pagination.pageSize,
+    searchQuery,
+    sortField,
+    sortDirection,
+    selectedTypes,
+    selectedStatuses,
+    selectedIndustries
+  ])
+
+  const handleTypeChange = useCallback((types: string[]) => {
+    setSelectedTypes(types)
+    fetchCompanies(1, pagination.pageSize, searchQuery, sortField, sortDirection, types, selectedStatuses, selectedIndustries)
+  }, [fetchCompanies, pagination.pageSize, searchQuery, sortField, sortDirection, selectedStatuses, selectedIndustries])
+
+  const handleStatusChange = useCallback((statuses: string[]) => {
+    setSelectedStatuses(statuses)
+    fetchCompanies(1, pagination.pageSize, searchQuery, sortField, sortDirection, selectedTypes, statuses, selectedIndustries)
+  }, [fetchCompanies, pagination.pageSize, searchQuery, sortField, sortDirection, selectedTypes, selectedIndustries])
+
+  const handleIndustryChange = useCallback((industries: string[]) => {
+    setSelectedIndustries(industries)
+    fetchCompanies(1, pagination.pageSize, searchQuery, sortField, sortDirection, selectedTypes, selectedStatuses, industries)
+  }, [fetchCompanies, pagination.pageSize, searchQuery, sortField, sortDirection, selectedTypes, selectedStatuses])
 
   return {
     companies,
@@ -183,6 +261,9 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
     sortField,
     sortDirection,
     searchQuery,
+    selectedTypes,
+    selectedStatuses,
+    selectedIndustries,
     handleAction,
     handleUpdateCompany,
     handleMenuClick,
@@ -191,6 +272,10 @@ export function useCompanyActions(initialCompanies: Company[] = []) {
     handlePageChange,
     handleSearch,
     handleSort,
+    handleExport,
+    handleTypeChange,
+    handleStatusChange,
+    handleIndustryChange,
     fetchCompanies
   }
 }
