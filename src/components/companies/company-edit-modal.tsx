@@ -3,10 +3,9 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { X as XMarkIcon } from 'lucide-react'
-import { CompanyEditForm } from './forms/company-edit-form'
 import { Company } from '@/types/company'
-import { CompanyFormData } from '@/types/company-forms'
 import { toast } from 'react-hot-toast'
+import { CompanySuperadminForm } from './forms/company-superadmin-form'
 
 interface CompanyEditModalProps {
   isOpen: boolean
@@ -39,7 +38,7 @@ export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: Compan
     }
   }, [isOpen])
 
-  const handleSubmit = async (formData: CompanyFormData) => {
+  const handleSubmit = async (formData: { name: string; identifier: string; logo_url: string | null }) => {
     if (isSubmitting) return
 
     setIsSubmitting(true)
@@ -52,27 +51,10 @@ export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: Compan
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: formData.basicInfo.name,
-          identifier: formData.basicInfo.identifier,
-          description: formData.basicInfo.description,
-          website: formData.basicInfo.website,
-          type: formData.basicInfo.type,
-          industry: formData.businessInfo.industry,
-          employee_count: formData.businessInfo.employee_count,
-          status: formData.businessInfo.status,
-          tax_id: formData.registrationInfo.tax_id,
-          registration_number: formData.registrationInfo.registration_number,
-          logo_url: formData.logoUrl,
-          contact: {
-            email: formData.contactInfo.email,
-            phone: formData.contactInfo.phone,
-            address: {
-              street: formData.contactInfo.address.street,
-              city: formData.contactInfo.address.city,
-              country: formData.contactInfo.address.country,
-              postal_code: formData.contactInfo.address.postal_code
-            }
-          }
+          id: company.id,
+          name: formData.name,
+          identifier: formData.identifier,
+          logo_url: formData.logo_url
         }),
       })
 
@@ -129,7 +111,7 @@ export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: Compan
               leaveFrom="opacity-100 translate-y-0 sm:scale-100"
               leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
             >
-              <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-3xl sm:p-6">
+              <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
                 <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
                   <button
                     type="button"
@@ -148,9 +130,12 @@ export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: Compan
                   >
                     Edit Company
                   </Dialog.Title>
+                  <p className="mt-2 text-sm text-gray-500">
+                    As a super admin, you can edit the company's name, identifier, and logo.
+                  </p>
 
                   <div className="mt-6">
-                    <CompanyEditForm
+                    <CompanySuperadminForm
                       company={company}
                       onSubmit={handleSubmit}
                       onDirtyStateChange={setIsDirty}

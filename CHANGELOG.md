@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - 2025-02-08
 
+### Changed
+- Restricted company edit functionality for super admins:
+  - Limited editable fields to company name, identifier, and logo
+  - Added validation for identifier uniqueness
+  - Enhanced audit logging for field changes
+  - Updated UI to reflect limited editing capabilities
+  - Improved form validation and error handling
+
 ### Added
 - Sorting functionality to companies table:
   - Sort by company name, type, status, industry, and user count
