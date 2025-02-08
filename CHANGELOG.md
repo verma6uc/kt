@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2025-02-08
 
 ### Added
+- Comprehensive API metrics tracking:
+  - Automatic tracking of all API requests and responses
+  - Records endpoint, method, status code, and duration
+  - Tracks request and response sizes
+  - Captures user and company context
+  - Stores error messages for failed requests
+  - Includes IP address and user agent information
 - Enhanced company deactivation workflow:
   - Automatically suspends all company users
   - Immediately terminates all active user sessions
@@ -56,3 +63,8 @@ All notable changes to this project will be documented in this file.
   - Proper cleanup of all user sessions
   - Audit logging of session terminations
   - Immediate effect on all logged-in users
+- Added API monitoring:
+  - Tracks all API requests for security auditing
+  - Records user context for each request
+  - Monitors error rates and response times
+  - Enables detection of suspicious activity
