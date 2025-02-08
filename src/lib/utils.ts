@@ -1,37 +1,76 @@
-import { NextRequest } from 'next/server'
+import { type ClassValue, clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
+import { type NextRequest } from 'next/server'
 
-export async function getClientIp(request: NextRequest): Promise<string> {
-  try {
-    // Try x-forwarded-for first
-    const forwardedFor = request.headers.get('x-forwarded-for')
-    if (forwardedFor) {
-      // Get the first IP in the list (client's original IP)
-      const ips = forwardedFor.split(',')
-      const clientIp = ips[0].trim()
-      if (clientIp && !['::1', '127.0.0.1', 'localhost'].includes(clientIp)) {
-        return clientIp
-      }
-    }
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
 
-    // Try x-real-ip
-    const realIp = request.headers.get('x-real-ip')
-    if (realIp && !['::1', '127.0.0.1', 'localhost'].includes(realIp)) {
-      return realIp
-    }
+export function getClientIp(req: NextRequest) {
+  const forwardedFor = req.headers.get('x-forwarded-for')
+  const realIp = req.headers.get('x-real-ip')
+  
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim()
+  }
+  
+  if (realIp) {
+    return realIp
+  }
+  
+  return 'unknown'
+}
 
-    // If we're still getting localhost IPs, try to get the external IP
-    try {
-      const response = await fetch('https://api.ipify.org?format=json')
-      if (response.ok) {
-        const data = await response.json()
-        return data.ip
-      }
-    } catch (error) {
-      console.error('Error fetching external IP:', error)
-    }
+export function convertToCSV(data: any[], columns: { key: string; header: string }[]): string {
+  // Create header row
+  const headerRow = columns.map(col => `"${col.header}"`).join(',')
+  
+  // Create data rows
+  const rows = data.map(item => {
+    return columns.map(col => {
+      const value = item[col.key]
+      // Handle special cases
+      if (value === null || value === undefined) return '""'
+      if (typeof value === 'string') return `"${value.replace(/"/g, '""')}"`
+      if (value instanceof Date) return `"${value.toISOString()}"`
+      return `"${value}"`
+    }).join(',')
+  })
 
-    return 'unknown'
-  } catch (error) {
-    return 'unknown'
+  // Combine header and rows
+  return [headerRow, ...rows].join('\n')
+}
+
+export function downloadCSV(csvContent: string, filename: string) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  
+  // Handle IE specifically
+  if (typeof window !== 'undefined' && window.navigator && 
+      'msSaveOrOpenBlob' in window.navigator) {
+    (window.navigator as any).msSaveOrOpenBlob(blob, filename)
+  } else {
+    link.href = URL.createObjectURL(blob)
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 }
+
+export function formatDate(date: Date | string) {
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  }).format(new Date(date))
+}
+
+export const companyColumns = [
+  { key: 'name', header: 'Company Name' },
+  { key: 'identifier', header: 'Identifier' },
+  { key: 'industry', header: 'Industry' },
+  { key: 'type', header: 'Type' },
+  { key: 'status', header: 'Status' },
+  { key: 'created_at', header: 'Created Date' }
+]

@@ -7,7 +7,7 @@ import { CompanyEditModal } from "@/components/companies/company-edit-modal"
 import { useState, useEffect } from "react"
 import { Company } from "@/types/company"
 import { useToast } from "@/components/providers/toast-provider"
-import { Plus } from "lucide-react"
+import { Download, Plus } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 interface PaginationInfo {
@@ -41,8 +41,8 @@ export default function CompaniesPage() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || "")
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
-  const [sortField, setSortField] = useState<SortableField>('name')
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [sortField, setSortField] = useState<SortableField>('created_at')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
   // Fetch companies with filters, sorting, and pagination
   const fetchCompanies = async () => {
@@ -155,6 +155,37 @@ export default function CompaniesPage() {
     fetchCompanies()
   }
 
+  // Handle export
+  const handleExport = async () => {
+    try {
+      const response = await fetch('/api/companies/export')
+      if (!response.ok) throw new Error('Failed to export companies')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `companies-${new Date().toISOString().split('T')[0]}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      showToast({
+        type: 'success',
+        title: 'Success',
+        message: 'Companies exported successfully'
+      })
+    } catch (error) {
+      console.error('Error exporting companies:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to export companies'
+      })
+    }
+  }
+
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8">
       <div className="sm:flex sm:items-center justify-between mb-8">
@@ -164,14 +195,24 @@ export default function CompaniesPage() {
             Manage and monitor all registered companies
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <Plus className="-ml-1 mr-2 h-5 w-5" />
-          Add Company
-        </button>
+        <div className="mt-4 sm:mt-0 sm:flex sm:gap-3">
+          <button
+            type="button"
+            onClick={handleExport}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <Download className="-ml-1 mr-2 h-5 w-5 text-gray-400" />
+            Export
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <Plus className="-ml-1 mr-2 h-5 w-5" />
+            Add Company
+          </button>
+        </div>
       </div>
 
       <div className="bg-white shadow-sm rounded-lg">

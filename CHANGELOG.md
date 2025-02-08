@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - 2025-02-08
 
+### Added
+- CSV export functionality for companies:
+  - Added export button next to "Add Company"
+  - Exports all company data in CSV format
+  - Includes formatted dates and proper column headers
+  - Downloads automatically with date-stamped filename
+- Created date column to companies table:
+  - Shows formatted date in "MMM D, YYYY" format
+  - Default sorting by created date (newest first)
+  - Sortable column header for flexible ordering
+
 ### Fixed
 - Standardized pagination across the application:
   - Updated companies table to use the shared pagination component

@@ -1,6 +1,7 @@
 "use client"
 
-import { ChevronUp, ChevronDown, Users } from 'lucide-react'
+import { Fragment } from 'react'
+import { Building2, Users } from 'lucide-react'
 import { Company } from '@/types/company'
 
 type SortableField = keyof Company | '_count.user'
@@ -15,9 +16,13 @@ export function CompanyTableHeader({ sortField, sortDirection, onSort }: Company
   const SortIcon = ({ field }: { field: SortableField }) => {
     if (sortField !== field) return null
     return sortDirection === 'asc' ? (
-      <ChevronUp className="w-4 h-4 ml-1 inline" />
+      <svg className="ml-2 h-5 w-5 inline" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+      </svg>
     ) : (
-      <ChevronDown className="w-4 h-4 ml-1 inline" />
+      <svg className="ml-2 h-5 w-5 inline" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+      </svg>
     )
   }
 
@@ -73,6 +78,16 @@ export function CompanyTableHeader({ sortField, sortDirection, onSort }: Company
           <div className="flex items-center">
             <span>Status</span>
             <SortIcon field="status" />
+          </div>
+        </th>
+        <th
+          scope="col"
+          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 cursor-pointer"
+          onClick={() => onSort('created_at')}
+        >
+          <div className="flex items-center">
+            <span>Created</span>
+            <SortIcon field="created_at" />
           </div>
         </th>
         <th
