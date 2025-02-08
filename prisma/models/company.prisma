@@ -1,0 +1,101 @@
+model company {
+  id                    Int                  @id @default(autoincrement())
+  uuid                  String               @unique
+  name                  String
+  identifier            String               @unique
+  logo_url              String?
+  description           String?
+  website               String?
+  type                  company_type         @default(small_business)
+  status                company_status       @default(pending_setup)
+  industry              String?
+  employee_count        Int?
+  tax_id                String?
+  registration_number   String?
+  created_at            DateTime             @default(now())
+  updated_at            DateTime
+  setup_completed_at    DateTime?
+  last_active_at        DateTime?
+  health_check_enabled  Boolean              @default(true)
+  health_check_interval Int                  @default(300)
+  last_health_check     DateTime?
+
+  // Relations
+  alert_threshold       alert_threshold[]
+  api_metrics           api_metrics[]
+  audit_log             audit_log[]
+  company_address       company_address[]
+  company_contact       company_contact[]
+  company_health        company_health[]
+  company_invitation    company_invitation[]
+  metrics_daily         metrics_daily[]
+  metrics_hourly        metrics_hourly[]
+  metrics_monthly       metrics_monthly[]
+  notification          notification[]
+  notification_config   notification_config?
+  password_history      password_history[]
+  reminder_schedule     reminder_schedule[]
+  resource_quota        resource_quota[]
+  security_config       security_config?
+  smtp_config           smtp_config?
+  system_metrics        system_metrics[]
+  user                  user[]
+
+  @@index([identifier])
+  @@index([status])
+}
+
+model company_invitation {
+  id                Int               @id @default(autoincrement())
+  uuid              String            @unique
+  company_id        Int
+  email             String
+  name              String?           // Made optional
+  role              user_role         @default(company_admin)
+  token             String            @unique
+  status            invitation_status @default(pending)
+  expires_at        DateTime
+  created_at        DateTime          @default(now())
+  updated_at        DateTime
+  accepted_at       DateTime?
+  created_by_id     Int
+  created_by_name   String
+  cancelled_at      DateTime?
+  cancelled_by_id   Int?
+  cancelled_by_name String?
+  reminder_sent_at  DateTime?
+  reminder_count    Int               @default(0)
+  user_id           Int?
+  ip_address        String?
+  user_agent        String?
+  company           company           @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, email])
+  @@index([expires_at])
+  @@index([status])
+  @@index([token])
+}
+
+model reminder_schedule {
+  id          Int      @id @default(autoincrement())
+  company_id  Int
+  days_before Int
+  created_at  DateTime @default(now())
+  updated_at  DateTime
+  company     company  @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, days_before])
+}
+
+model resource_quota {
+  id         Int      @id @default(autoincrement())
+  company_id Int
+  resource   String
+  limit      Float
+  unit       String
+  created_at DateTime @default(now())
+  updated_at DateTime
+  company    company  @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, resource])
+}

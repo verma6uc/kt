@@ -1,0 +1,84 @@
+model address {
+  id              Int               @id @default(autoincrement())
+  uuid            String            @unique
+  street          String
+  city            String
+  state           String?
+  country         String
+  postal_code     String
+  created_at      DateTime          @default(now())
+  updated_at      DateTime
+  company_address company_address[]
+  user_address    user_address[]
+
+  @@index([country, state, city])
+}
+
+model company_address {
+  id         Int      @id @default(autoincrement())
+  company_id Int
+  address_id Int
+  type       String
+  is_primary Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime
+  address    address  @relation(fields: [address_id], references: [id])
+  company    company  @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, type, is_primary])
+}
+
+model user_address {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  address_id Int
+  type       String
+  is_primary Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime
+  address    address  @relation(fields: [address_id], references: [id])
+  user       user     @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, type, is_primary])
+}
+
+model contact_info {
+  id              Int               @id @default(autoincrement())
+  uuid            String            @unique
+  type            String
+  value           String
+  is_primary      Boolean           @default(false)
+  verified        Boolean           @default(false)
+  verified_at     DateTime?
+  created_at      DateTime          @default(now())
+  updated_at      DateTime
+  company_contact company_contact[]
+  user_contact    user_contact[]
+
+  @@index([type, value])
+}
+
+model company_contact {
+  id              Int          @id @default(autoincrement())
+  company_id      Int
+  contact_info_id Int
+  department      String?
+  created_at      DateTime     @default(now())
+  updated_at      DateTime
+  company         company      @relation(fields: [company_id], references: [id])
+  contact_info    contact_info @relation(fields: [contact_info_id], references: [id])
+
+  @@unique([company_id, contact_info_id])
+}
+
+model user_contact {
+  id              Int          @id @default(autoincrement())
+  user_id         Int
+  contact_info_id Int
+  created_at      DateTime     @default(now())
+  updated_at      DateTime
+  contact_info    contact_info @relation(fields: [contact_info_id], references: [id])
+  user            user         @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, contact_info_id])
+}

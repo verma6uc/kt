@@ -1,0 +1,18 @@
+enum notification_priority {
+  low
+  medium
+  high
+}
+
+enum notification_status {
+  unread
+  read
+  archived
+}
+
+enum notification_type {
+  email
+  in_app
+  both
+  none
+}

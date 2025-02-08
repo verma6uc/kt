@@ -1,0 +1,116 @@
+model api_metrics {
+  id            Int        @id @default(autoincrement())
+  uuid          String     @unique
+  endpoint      String
+  method        api_method
+  status_code   Int
+  duration_ms   Int
+  user_id       Int?
+  company_id    Int?
+  ip_address    String?
+  user_agent    String?
+  response_size Int?
+  error_message String?
+  created_at    DateTime   @default(now())
+  request_size  Int?
+  company       company?   @relation(fields: [company_id], references: [id])
+  user          user?      @relation(fields: [user_id], references: [id])
+
+  @@index([company_id])
+  @@index([created_at])
+  @@index([endpoint])
+  @@index([status_code])
+}
+
+model system_metrics {
+  id          Int         @id @default(autoincrement())
+  uuid        String      @unique
+  metric_type metric_type
+  value       Float
+  unit        String
+  company_id  Int?
+  created_at  DateTime    @default(now())
+  company     company?    @relation(fields: [company_id], references: [id])
+
+  @@index([company_id])
+  @@index([metric_type, created_at])
+}
+
+model company_health {
+  id                Int           @id @default(autoincrement())
+  uuid              String        @unique
+  company_id        Int
+  status            health_status @default(healthy)
+  error_rate        Float
+  avg_response_time Float
+  uptime_percentage Float
+  active_users      Int
+  critical_issues   Int
+  last_check        DateTime      @default(now())
+  created_at        DateTime      @default(now())
+  company           company       @relation(fields: [company_id], references: [id])
+
+  @@index([company_id])
+  @@index([created_at])
+}
+
+model metrics_hourly {
+  id          Int      @id @default(autoincrement())
+  company_id  Int
+  metric_type String
+  hour        DateTime
+  min_value   Float
+  max_value   Float
+  avg_value   Float
+  count       Int
+  created_at  DateTime @default(now())
+  company     company  @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, metric_type, hour])
+  @@index([hour])
+}
+
+model metrics_daily {
+  id          Int      @id @default(autoincrement())
+  company_id  Int
+  metric_type String
+  date        DateTime
+  min_value   Float
+  max_value   Float
+  avg_value   Float
+  count       Int
+  created_at  DateTime @default(now())
+  company     company  @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, metric_type, date])
+  @@index([date])
+}
+
+model metrics_monthly {
+  id          Int      @id @default(autoincrement())
+  company_id  Int
+  metric_type String
+  month       DateTime
+  min_value   Float
+  max_value   Float
+  avg_value   Float
+  count       Int
+  created_at  DateTime @default(now())
+  company     company  @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, metric_type, month])
+  @@index([month])
+}
+
+model alert_threshold {
+  id          Int      @id @default(autoincrement())
+  company_id  Int
+  metric_name String
+  warning     Float
+  critical    Float
+  created_at  DateTime @default(now())
+  updated_at  DateTime
+  company     company  @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, metric_name])
+}

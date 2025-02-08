@@ -1,0 +1,29 @@
+enum user_role {
+  super_admin
+  company_admin
+}
+
+enum user_status {
+  active
+  inactive
+  suspended
+  locked
+  pending_activation
+}
+
+enum audit_action {
+  create
+  update
+  delete
+  login
+  logout
+  password_change
+  password_reset
+  settings_change
+  login_failed
+  invitation_sent
+  invitation_resent
+  invitation_cancelled
+  invitation_accepted
+  invitation_expired
+}

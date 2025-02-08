@@ -1,0 +1,55 @@
+model notification {
+  id         Int                   @id @default(autoincrement())
+  uuid       String                @unique
+  title      String
+  message    String
+  status     notification_status   @default(unread)
+  priority   notification_priority @default(low)
+  user_id    Int
+  company_id Int
+  link       String?
+  created_at DateTime              @default(now())
+  read_at    DateTime?
+  company    company               @relation(fields: [company_id], references: [id])
+  user       user                  @relation(fields: [user_id], references: [id])
+
+  @@index([company_id, created_at])
+  @@index([user_id, status])
+}
+
+model notification_config {
+  id                Int               @id @default(autoincrement())
+  uuid              String            @unique
+  company_id        Int               @unique
+  notification_type notification_type @default(email)
+  created_at        DateTime          @default(now())
+  updated_at        DateTime
+  company           company           @relation(fields: [company_id], references: [id])
+}
+
+model audit_log {
+  id         Int          @id @default(autoincrement())
+  uuid       String       @unique
+  user_id    Int
+  company_id Int
+  action     audit_action
+  details    String
+  ip_address String?
+  user_agent String?
+  created_at DateTime     @default(now())
+  company    company      @relation(fields: [company_id], references: [id])
+  user       user         @relation(fields: [user_id], references: [id])
+
+  @@index([company_id, created_at])
+  @@index([user_id, created_at])
+}
+
+model audit_metadata {
+  id           Int      @id @default(autoincrement())
+  audit_log_id Int
+  key          String
+  value        String
+  created_at   DateTime @default(now())
+
+  @@unique([audit_log_id, key])
+}

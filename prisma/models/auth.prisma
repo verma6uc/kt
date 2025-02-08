@@ -1,0 +1,82 @@
+model user {
+  id                     Int                @id @default(autoincrement())
+  uuid                   String             @unique
+  email                  String             @unique
+  password               String
+  name                   String?
+  role                   user_role          @default(company_admin)
+  status                 user_status        @default(pending_activation)
+  company_id             Int
+  failed_login_attempts  Int                @default(0)
+  last_failed_attempt    DateTime?
+  last_password_change   DateTime           @default(now())
+  created_at             DateTime           @default(now())
+  updated_at             DateTime
+  email_verified         DateTime?
+  invitation_accepted_at DateTime?
+  invitation_token       String?
+
+  // Relations
+  account                account[]
+  api_metrics            api_metrics[]
+  audit_log              audit_log[]
+  notification           notification[]
+  password_history       password_history[]
+  session                session[]
+  company                company            @relation(fields: [company_id], references: [id])
+  user_address           user_address[]
+  user_contact           user_contact[]
+
+  @@index([company_id, email])
+  @@index([status])
+}
+
+model account {
+  id                  Int     @id @default(autoincrement())
+  uuid                String  @unique
+  user_id             Int
+  type                String
+  provider            String
+  provider_account_id String
+  refresh_token       String?
+  access_token        String?
+  expires_at          Int?
+  token_type          String?
+  scope               String?
+  id_token            String?
+  session_state       String?
+  user                user    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([provider, provider_account_id])
+}
+
+model session {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique
+  session_token String   @unique
+  user_id       Int
+  expires       DateTime
+  user          user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model verification_token {
+  id         Int      @id @default(autoincrement())
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model password_history {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique
+  user_id    Int
+  company_id Int
+  password   String
+  created_at DateTime @default(now())
+  company    company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  user       user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+}

@@ -1,0 +1,29 @@
+model smtp_config {
+  id              Int      @id @default(autoincrement())
+  uuid            String   @unique
+  company_id      Int      @unique
+  host            String
+  port            Int
+  username        String?
+  password        String?
+  from_email      String
+  from_name       String
+  encryption_type String   @default("TLS")
+  created_at      DateTime @default(now())
+  updated_at      DateTime
+  company         company  @relation(fields: [company_id], references: [id])
+}
+
+model security_config {
+  id                     Int      @id @default(autoincrement())
+  uuid                   String   @unique
+  company_id             Int      @unique
+  password_history_limit Int      @default(3)
+  password_expiry_days   Int      @default(90)
+  max_failed_attempts    Int      @default(5)
+  session_timeout_mins   Int      @default(60)
+  enforce_single_session Boolean  @default(false)
+  created_at            DateTime @default(now())
+  updated_at            DateTime
+  company               company  @relation(fields: [company_id], references: [id])
+}

@@ -1,0 +1,22 @@
+enum api_method {
+  GET
+  POST
+  PUT
+  PATCH
+  DELETE
+}
+
+enum metric_type {
+  cpu
+  memory
+  disk
+  network
+  api
+  custom
+}
+
+enum health_status {
+  healthy
+  warning
+  critical
+}

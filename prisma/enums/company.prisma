@@ -1,0 +1,19 @@
+enum company_status {
+  active
+  inactive
+  suspended
+  pending_setup
+}
+
+enum company_type {
+  enterprise
+  small_business
+  startup
+}
+
+enum invitation_status {
+  pending
+  accepted
+  expired
+  cancelled
+}
