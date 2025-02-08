@@ -5,8 +5,20 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2025-02-07
 
 ### Added
+- Admin invitation system
+  - Invitation workflow and UI components
+  - Email service integration
+  - Documentation and schema changes
+- Health metrics features
+  - Health metrics API endpoints
+  - Health metrics table component
+  - Health status dashboard
+- Audit system enhancements
+  - Recent activity cards
+  - Audit logging improvements
+  - Type definitions for audit data
 - User count in company list API response
-- Extended Company type definitions for better TypeScript support
+- Extended Company type definitions
 
 ## [Initial Release] - 2025-02-07
 
