@@ -4,6 +4,8 @@
 - Set up Next.js project with TypeScript and Tailwind CSS
 - Implement authentication system with NextAuth
 - Create company management system
+  - Add user count to company list
+  - Improve TypeScript type definitions
 - Build notification system
 - Develop dashboard with analytics
 - Implement audit logging
