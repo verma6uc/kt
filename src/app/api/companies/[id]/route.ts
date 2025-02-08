@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { getClientIp } from '@/lib/utils'
-import { audit_action } from '@prisma/client'
-import crypto from 'crypto'
+import { handleCompanyDeactivation } from '@/lib/company-service'
 
 export async function PATCH(
   request: NextRequest,
@@ -12,94 +10,73 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-
-    if (!session) {
+    if (!session?.user?.id) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    if (session.user.role !== 'super_admin') {
-      return new NextResponse('Forbidden', { status: 403 })
-    }
-
-    const id = parseInt(params.id)
-    if (isNaN(id)) {
-      return new NextResponse('Invalid company ID', { status: 400 })
-    }
-
     const data = await request.json()
-    const { name, identifier, logo_url } = data
+    const companyId = parseInt(params.id)
+    const userId = parseInt(session.user.id)
 
-    // Validate required fields
-    if (!name?.trim() || !identifier?.trim()) {
-      return new NextResponse('Name and identifier are required', { status: 400 })
-    }
+    // If status is being updated to inactive, handle deactivation
+    if (data.status === 'inactive') {
+      const deactivationResult = await handleCompanyDeactivation(
+        companyId,
+        userId
+      )
 
-    // Check if identifier is already taken by another company
-    const existingCompany = await prisma.company.findFirst({
-      where: {
-        identifier: identifier.trim(),
-        id: { not: id }
+      if (!deactivationResult.success) {
+        return new NextResponse(deactivationResult.error || 'Failed to deactivate company', {
+          status: 500
+        })
       }
-    })
 
-    if (existingCompany) {
-      return new NextResponse('Identifier is already taken', { status: 400 })
-    }
-
-    // Get current company state for audit log
-    const oldCompany = await prisma.company.findUnique({
-      where: { id },
-      select: {
-        name: true,
-        identifier: true,
-        logo_url: true
-      }
-    })
-
-    if (!oldCompany) {
-      return new NextResponse('Company not found', { status: 404 })
-    }
-
-    // Update company with only allowed fields
-    const company = await prisma.company.update({
-      where: { id },
-      data: {
-        name: name.trim(),
-        identifier: identifier.trim(),
-        logo_url,
-        updated_at: new Date()
-      }
-    })
-
-    // Create audit log entries for changed fields
-    const changes: string[] = []
-    if (oldCompany.name !== name.trim()) {
-      changes.push(`Name: ${oldCompany.name} → ${name.trim()}`)
-    }
-    if (oldCompany.identifier !== identifier.trim()) {
-      changes.push(`Identifier: ${oldCompany.identifier} → ${identifier.trim()}`)
-    }
-    if (oldCompany.logo_url !== logo_url) {
-      changes.push(`Logo: ${oldCompany.logo_url ? 'Changed' : 'Added'}`)
-    }
-
-    if (changes.length > 0) {
-      await prisma.audit_log.create({
-        data: {
-          uuid: crypto.randomUUID(),
-          user_id: parseInt(session.user.id),
-          company_id: id,
-          action: audit_action.update,
-          details: changes.join('\n'),
-          ip_address: await getClientIp(request),
-          user_agent: request.headers.get('user-agent') || null,
-        },
+      // Update company status
+      const company = await prisma.company.update({
+        where: { id: companyId },
+        data: { status: 'inactive' }
       })
+
+      return NextResponse.json(company)
     }
+
+    // Handle other updates normally
+    const company = await prisma.company.update({
+      where: { id: companyId },
+      data
+    })
 
     return NextResponse.json(company)
   } catch (error) {
     console.error('Error updating company:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return new NextResponse(
+      error instanceof Error ? error.message : 'Failed to update company',
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return new NextResponse('Unauthorized', { status: 401 })
+    }
+
+    const companyId = parseInt(params.id)
+    const company = await prisma.company.delete({
+      where: { id: companyId }
+    })
+
+    return NextResponse.json(company)
+  } catch (error) {
+    console.error('Error deleting company:', error)
+    return new NextResponse(
+      error instanceof Error ? error.message : 'Failed to delete company',
+      { status: 500 }
+    )
   }
 }

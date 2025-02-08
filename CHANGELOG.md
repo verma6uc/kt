@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2025-02-08
 
 ### Added
+- Enhanced company deactivation workflow:
+  - Automatically suspends all company users
+  - Sends email notifications to company admins
+  - Creates detailed audit logs for deactivation and user suspensions
 - CSV export functionality for companies:
   - Added export button next to "Add Company"
   - Exports all company data in CSV format
@@ -38,3 +42,7 @@ All notable changes to this project will be documented in this file.
   - Added icon prefix for company name input
   - Improved form field validation feedback
   - Added loading state for submission
+- Enhanced company status management:
+  - Added proper error handling for status changes
+  - Improved feedback for successful/failed operations
+  - Added transaction support for atomic operations
