@@ -1,10 +1,12 @@
 "use client"
 
-import { Fragment } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
+import { X as XMarkIcon } from 'lucide-react'
 import { CompanyEditForm } from './forms/company-edit-form'
 import { Company } from '@/types/company'
 import { CompanyFormData } from '@/types/company-forms'
+import { toast } from 'react-hot-toast'
 
 interface CompanyEditModalProps {
   isOpen: boolean
@@ -14,7 +16,35 @@ interface CompanyEditModalProps {
 }
 
 export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: CompanyEditModalProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+
+  // Prevent scrolling when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen])
+
+  // Reset state when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsDirty(false)
+      setIsSubmitting(false)
+    }
+  }, [isOpen])
+
   const handleSubmit = async (formData: CompanyFormData) => {
+    if (isSubmitting) return
+
+    setIsSubmitting(true)
+    const toastId = toast.loading('Updating company...')
+    
     try {
       const response = await fetch(`/api/companies/${company.id}`, {
         method: 'PATCH',
@@ -33,25 +63,49 @@ export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: Compan
           tax_id: formData.registrationInfo.tax_id,
           registration_number: formData.registrationInfo.registration_number,
           logo_url: formData.logoUrl,
-          // TODO: Handle contact info and address updates
+          contact: {
+            email: formData.contactInfo.email,
+            phone: formData.contactInfo.phone,
+            address: {
+              street: formData.contactInfo.address.street,
+              city: formData.contactInfo.address.city,
+              country: formData.contactInfo.address.country,
+              postal_code: formData.contactInfo.address.postal_code
+            }
+          }
         }),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update company')
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to update company')
       }
 
+      toast.success('Company updated successfully', { id: toastId })
+      setIsDirty(false)
       onSuccess()
     } catch (error) {
       console.error('Error updating company:', error)
-      // Error will be handled by the form component
+      toast.error(error instanceof Error ? error.message : 'Failed to update company', { id: toastId })
       throw error
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleClose = () => {
+    if (isDirty) {
+      if (window.confirm('You have unsaved changes. Are you sure you want to close?')) {
+        onClose()
+      }
+    } else {
+      onClose()
     }
   }
 
   return (
     <Transition.Root show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
+      <Dialog as="div" className="relative z-50" onClose={handleClose}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
@@ -76,6 +130,17 @@ export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: Compan
               leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
             >
               <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-3xl sm:p-6">
+                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
+                  <button
+                    type="button"
+                    className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    onClick={handleClose}
+                  >
+                    <span className="sr-only">Close</span>
+                    <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+                  </button>
+                </div>
+
                 <div>
                   <Dialog.Title
                     as="h3"
@@ -88,6 +153,8 @@ export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: Compan
                     <CompanyEditForm
                       company={company}
                       onSubmit={handleSubmit}
+                      onDirtyStateChange={setIsDirty}
+                      disabled={isSubmitting}
                     />
                   </div>
                 </div>

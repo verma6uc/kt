@@ -20,61 +20,36 @@ export async function POST(request: Request) {
       return new NextResponse('Forbidden', { status: 403 })
     }
 
-    const formData = await request.formData()
-    const name = formData.get('name') as string
-    const logo = formData.get('logo') as File | null
+    const data = await request.json()
+    const { name, logo_url } = data
 
     if (!name) {
       return new NextResponse('Company name is required', { status: 400 })
     }
 
-    // Generate unique identifier
-    const identifier = nanoid(10).toUpperCase()
-
-    // Check if identifier is unique
+    // Check if company name already exists
     const existingCompany = await prisma.company.findFirst({
       where: {
-        OR: [
-          { identifier },
-          { name: { equals: name, mode: Prisma.QueryMode.insensitive } }
-        ]
+        name: { equals: name, mode: Prisma.QueryMode.insensitive }
       }
     })
 
     if (existingCompany) {
-      if (existingCompany.name.toLowerCase() === name.toLowerCase()) {
-        return new NextResponse('Company name already exists', { status: 400 })
-      }
-      // If it's an identifier collision (very unlikely), generate a new one
-      return new NextResponse('Please try again', { status: 409 })
+      return new NextResponse('Company name already exists', { status: 400 })
     }
 
-    let logoUrl: string | undefined
-
-    if (logo) {
-      // Ensure uploads directory exists
-      const uploadsDir = path.join(process.cwd(), 'public/uploads')
-      await mkdir(uploadsDir, { recursive: true })
-
-      // Save logo file
-      const bytes = await logo.arrayBuffer()
-      const buffer = Buffer.from(bytes)
-      const ext = logo.name.split('.').pop()
-      const filename = `company-${identifier}-${Date.now()}.${ext}`
-      const filepath = path.join(uploadsDir, filename)
-      await writeFile(filepath, buffer)
-      logoUrl = `/uploads/${filename}`
-    }
+    // Generate unique identifier
+    const identifier = nanoid(10).toUpperCase()
 
     const now = new Date()
 
-    // Create company
+    // Create company with minimal required data
     const company = await prisma.company.create({
       data: {
         uuid: crypto.randomUUID(),
         name,
         identifier,
-        logo_url: logoUrl,
+        logo_url: logo_url || null,
         status: 'pending_setup' as company_status,
         type: 'small_business' as company_type,
         updated_at: now,
@@ -92,22 +67,12 @@ export async function POST(request: Request) {
       }
     })
 
-    // Create detailed audit log
-    const securityConfig = await prisma.security_config.findUnique({
-      where: { company_id: company.id }
-    })
-
+    // Create audit log
     const auditDetails = [
       `Company created: ${company.name} (${company.identifier})`,
       `Initial Status: ${company.status}`,
       `Type: ${company.type}`,
-      `Logo: ${company.logo_url ? 'Uploaded' : 'Not provided'}`,
-      'Security Configuration:',
-      `- Password History Limit: ${securityConfig?.password_history_limit}`,
-      `- Password Expiry Days: ${securityConfig?.password_expiry_days}`,
-      `- Max Failed Attempts: ${securityConfig?.max_failed_attempts}`,
-      `- Session Timeout (mins): ${securityConfig?.session_timeout_mins}`,
-      `- Single Session: ${securityConfig?.enforce_single_session ? 'Enforced' : 'Not enforced'}`
+      `Logo: ${company.logo_url ? 'Uploaded' : 'Not provided'}`
     ].join('\n')
 
     await prisma.audit_log.create({
@@ -122,7 +87,7 @@ export async function POST(request: Request) {
       }
     })
 
-    // Get all super admins
+    // Notify super admins
     const superAdmins = await prisma.user.findMany({
       where: {
         role: 'super_admin',
@@ -130,7 +95,6 @@ export async function POST(request: Request) {
       }
     })
 
-    // Create notifications for each super admin
     await Promise.all(superAdmins.map(admin => 
       prisma.notification.create({
         data: {
@@ -283,58 +247,11 @@ export async function PATCH(request: Request) {
       return new NextResponse('Forbidden', { status: 403 })
     }
 
-    // Get request metadata for audit log
-    const ip_address = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip')
-    const user_agent = request.headers.get('user-agent')
+    const data = await request.json()
+    const { id, ...updateData } = data
 
-    // Handle both FormData and JSON requests
-    const isFormData = request.headers.get('content-type')?.includes('multipart/form-data')
-    const data = isFormData ? await request.formData() : await request.json()
-    
-    // Get company ID
-    const id = isFormData ? parseInt(data.get('id') as string) : data.id
-    
     if (!id) {
       return new NextResponse('Company ID is required', { status: 400 })
-    }
-
-    // Handle file upload for FormData requests
-    let logoUrl: string | undefined
-    if (isFormData) {
-      const logo = data.get('logo') as File
-      if (logo) {
-        try {
-          const bytes = await logo.arrayBuffer()
-          const buffer = Buffer.from(bytes)
-          
-          const ext = logo.name.split('.').pop()
-          const filename = `company-${id}-${Date.now()}.${ext}`
-          const filepath = path.join('public/uploads', filename)
-          
-          await writeFile(filepath, buffer)
-          logoUrl = `/uploads/${filename}`
-        } catch (error) {
-          console.error('Error uploading logo:', error)
-          return new NextResponse('Failed to upload logo', { status: 500 })
-        }
-      }
-    }
-
-    // Prepare update data
-    const updateData = {
-      name: isFormData ? data.get('name') as string : data.name,
-      identifier: isFormData ? data.get('identifier') as string : data.identifier,
-      description: isFormData ? (data.get('description') as string || null) : data.description,
-      website: isFormData ? (data.get('website') as string || null) : data.website,
-      type: isFormData ? data.get('type') as company_type : data.type,
-      industry: isFormData ? (data.get('industry') as string || null) : data.industry,
-      status: isFormData ? data.get('status') as company_status : data.status,
-      tax_id: isFormData ? (data.get('tax_id') as string || null) : data.tax_id,
-      registration_number: isFormData ? 
-        (data.get('registration_number') as string || null) : 
-        data.registration_number,
-      ...(logoUrl && { logo_url: logoUrl }),
-      updated_at: new Date()
     }
 
     // Get current company state for audit log
@@ -354,87 +271,40 @@ export async function PATCH(request: Request) {
       }
     })
 
+    if (!oldCompany) {
+      return new NextResponse('Company not found', { status: 404 })
+    }
+
     // Update company
     const company = await prisma.company.update({
       where: { id },
-      include: {
-        user: true,
-        _count: true,
-      },
-      data: updateData,
+      data: {
+        ...updateData,
+        updated_at: new Date()
+      }
     })
 
     // Create audit log entries
-    if (oldCompany) {
-      const changes: string[] = []
-      
-      Object.entries(updateData).forEach(([key, newValue]) => {
-        const oldValue = oldCompany[key as keyof typeof oldCompany]
-        
-        if (oldValue !== newValue) {
-          switch (key) {
-            case 'status':
-              changes.push(`Status changed from ${oldValue} to ${newValue}`)
-              break
-            case 'name':
-              changes.push(`Name changed from "${oldValue}" to "${newValue}"`)
-              break
-            case 'industry':
-              changes.push(`Industry changed from ${oldValue || 'none'} to ${newValue || 'none'}`)
-              break
-            case 'type':
-              changes.push(`Type changed from ${oldValue} to ${newValue}`)
-              break
-            case 'logo_url':
-              changes.push('Company logo was updated')
-              break
-            case 'website':
-              changes.push(`Website changed from ${oldValue || 'none'} to ${newValue || 'none'}`)
-              break
-            case 'tax_id':
-              changes.push(`Tax ID changed from ${oldValue || 'none'} to ${newValue || 'none'}`)
-              break
-            case 'registration_number':
-              changes.push(`Registration number changed from ${oldValue || 'none'} to ${newValue || 'none'}`)
-              break
-            default:
-              changes.push(`${key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')} was updated`)
-          }
-        }
-      })
-
-      // Create audit log if there are changes
-      if (changes.length > 0 || (!isFormData && data.auditDetails)) {
-        const auditDetails = !isFormData && data.auditDetails ? 
-          data.auditDetails : 
-          changes.join('\n')
-
-        await prisma.audit_log.create({
-          data: {
-            uuid: crypto.randomUUID(),
-            user_id: parseInt(session.user.id),
-            company_id: id,
-            action: audit_action.update,
-            details: auditDetails,
-            ip_address: ip_address || null,
-            user_agent: user_agent || null,
-          },
-        })
-
-        // Create audit metadata if provided
-        if (!isFormData && data.auditMetadata) {
-          const metadata = Object.entries(data.auditMetadata)
-          if (metadata.length > 0) {
-            await prisma.audit_metadata.createMany({
-              data: metadata.map(([key, value]) => ({
-                audit_log_id: id,
-                key,
-                value: String(value),
-              })),
-            })
-          }
-        }
+    const changes: string[] = []
+    Object.entries(updateData).forEach(([key, newValue]) => {
+      const oldValue = oldCompany[key as keyof typeof oldCompany]
+      if (oldValue !== newValue) {
+        changes.push(`${key}: ${oldValue} → ${newValue}`)
       }
+    })
+
+    if (changes.length > 0) {
+      await prisma.audit_log.create({
+        data: {
+          uuid: crypto.randomUUID(),
+          user_id: parseInt(session.user.id),
+          company_id: id,
+          action: audit_action.update,
+          details: changes.join('\n'),
+          ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null,
+          user_agent: request.headers.get('user-agent') || null,
+        },
+      })
     }
 
     return NextResponse.json(company)

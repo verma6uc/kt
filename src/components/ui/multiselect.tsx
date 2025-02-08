@@ -1,132 +1,115 @@
 "use client"
 
-import { useState, useRef, useEffect } from 'react'
-import { Check, ChevronDown, X } from 'lucide-react'
-import { useToast } from '@/components/providers/toast-provider'
+import { Fragment, useState } from 'react'
+import { Listbox, Transition } from '@headlessui/react'
+import { Check, ChevronsUpDown } from 'lucide-react'
 
-interface Option {
+export interface MultiselectProps {
   label: string
-  value: string
-}
-
-interface MultiselectProps {
-  options: Option[]
+  options: Array<{ label: string; value: string }>
   value: string[]
-  onChange: (value: string[]) => void
+  onChange: (values: string[]) => void
   placeholder?: string
-  label?: string
+  error?: string
+  disabled?: boolean
 }
 
 export function Multiselect({
+  label,
   options,
   value,
   onChange,
   placeholder = 'Select options',
-  label
+  error,
+  disabled = false,
 }: MultiselectProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const { showToast } = useToast()
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  const selectedOptions = options.filter(option => value.includes(option.value))
-
-  const handleToggleOption = (optionValue: string) => {
-    const newValue = value.includes(optionValue)
-      ? value.filter(v => v !== optionValue)
-      : [...value, optionValue]
-    onChange(newValue)
-  }
-
-  const handleRemoveOption = (e: React.MouseEvent, optionValue: string) => {
-    e.stopPropagation()
-    onChange(value.filter(v => v !== optionValue))
-  }
-
-  const handleClearAll = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    onChange([])
-    showToast({
-      type: 'info',
-      title: 'Filters Cleared',
-      message: `All ${label?.toLowerCase() || 'filter'} selections have been cleared`
-    })
-  }
+  const selectedLabels = value
+    .map((v) => options.find((o) => o.value === v)?.label)
+    .filter(Boolean)
+    .join(', ')
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {label}
-        </label>
-      )}
-      <div
-        className="relative min-h-[38px] px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm cursor-pointer hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <div className="flex flex-wrap gap-1 pr-16">
-          {selectedOptions.length === 0 ? (
-            <span className="text-gray-500">{placeholder}</span>
-          ) : (
-            <>
-              {selectedOptions.map(option => (
-                <span
-                  key={option.value}
-                  className="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-sm"
-                >
-                  {option.label}
-                  <button
-                    onClick={(e) => handleRemoveOption(e, option.value)}
-                    className="ml-1 hover:text-blue-900"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-            </>
-          )}
-        </div>
-        <div className="absolute right-0 top-0 h-full pr-2 flex items-center gap-1">
-          {value.length > 0 && (
-            <button
-              onClick={handleClearAll}
-              className="p-1 hover:text-gray-600 text-gray-400"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`} />
-        </div>
-      </div>
-      {isOpen && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
-          <ul className="py-1 max-h-60 overflow-auto">
-            {options.map(option => (
-              <li
-                key={option.value}
-                className={`px-3 py-2 cursor-pointer flex items-center justify-between hover:bg-gray-100 ${
-                  value.includes(option.value) ? 'bg-blue-50' : ''
-                }`}
-                onClick={() => handleToggleOption(option.value)}
+    <div>
+      <Listbox value={value} onChange={onChange} disabled={disabled}>
+        {({ open }) => (
+          <>
+            <Listbox.Label className="block text-sm font-medium text-gray-700">
+              {label}
+            </Listbox.Label>
+            <div className="relative mt-1">
+              <Listbox.Button
+                className={`relative w-full cursor-default rounded-md border py-2 pl-3 pr-10 text-left shadow-sm sm:text-sm ${
+                  error
+                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                } ${disabled ? 'bg-gray-50 text-gray-500' : 'bg-white'}`}
+                onClick={() => setIsOpen(!isOpen)}
+                aria-invalid={!!error}
+                aria-describedby={error ? `${label}-error` : undefined}
               >
-                <span>{option.label}</span>
-                {value.includes(option.value) && (
-                  <Check className="h-4 w-4 text-blue-600" />
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
+                <span className="block truncate">
+                  {selectedLabels || placeholder}
+                </span>
+                <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                  <ChevronsUpDown
+                    className="h-5 w-5 text-gray-400"
+                    aria-hidden="true"
+                  />
+                </span>
+              </Listbox.Button>
+
+              <Transition
+                show={open}
+                as={Fragment}
+                leave="transition ease-in duration-100"
+                leaveFrom="opacity-100"
+                leaveTo="opacity-0"
+              >
+                <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                  {options.map((option) => (
+                    <Listbox.Option
+                      key={option.value}
+                      className={({ active }) =>
+                        `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                          active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'
+                        }`
+                      }
+                      value={option.value}
+                    >
+                      {({ selected, active }) => (
+                        <>
+                          <span
+                            className={`block truncate ${
+                              selected ? 'font-medium' : 'font-normal'
+                            }`}
+                          >
+                            {option.label}
+                          </span>
+                          {selected ? (
+                            <span
+                              className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                                active ? 'text-blue-600' : 'text-blue-600'
+                              }`}
+                            >
+                              <Check className="h-5 w-5" aria-hidden="true" />
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                    </Listbox.Option>
+                  ))}
+                </Listbox.Options>
+              </Transition>
+            </div>
+          </>
+        )}
+      </Listbox>
+      {error && (
+        <p className="mt-2 text-sm text-red-600" id={`${label}-error`}>
+          {error}
+        </p>
       )}
     </div>
   )

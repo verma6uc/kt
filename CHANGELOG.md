@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2025-02-08
+
+### Changed
+- Simplified company creation process:
+  - Reduced required fields to only company name and optional logo
+  - Automated identifier generation
+  - Moved additional company details to CompanyAdmin setup phase
+  - Updated company creation API to handle simplified data
+  - Improved validation and error handling
+
 ## [Unreleased] - 2025-02-07
 
 ### Added

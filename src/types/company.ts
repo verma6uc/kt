@@ -1,6 +1,19 @@
 import { company_type, company_status } from '@prisma/client'
 import { CompanyHealth } from './metrics'
 
+interface CompanyAddress {
+  street?: string
+  city?: string
+  country?: string
+  postal_code?: string
+}
+
+interface CompanyContact {
+  email?: string
+  phone?: string
+  address?: CompanyAddress
+}
+
 export interface Company {
   id: number
   uuid: string
@@ -17,6 +30,7 @@ export interface Company {
   employee_count: number | null
   created_at: Date
   updated_at: Date
+  contact?: CompanyContact
   _count?: {
     user: number
     api_metrics?: number
