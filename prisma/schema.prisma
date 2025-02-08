@@ -1,7 +1,16 @@
-// Previous content remains the same until the notification model...
+// This is your Prisma schema file
 
-// New Monitoring Models
-model user_activity {
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Monitoring Models
+model userActivity {
   id            Int      @id @default(autoincrement())
   user_id       Int
   company_id    Int
@@ -12,10 +21,11 @@ model user_activity {
   company       company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
   user          user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
+  @@map("user_activity")
   @@index([company_id, date])
 }
 
-model feature_usage {
+model featureUsage {
   id           Int      @id @default(autoincrement())
   company_id   Int
   feature_name String
@@ -24,10 +34,11 @@ model feature_usage {
 
   company      company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@map("feature_usage")
   @@index([company_id, feature_name])
 }
 
-model growth_metrics {
+model growthMetrics {
   id           Int      @id @default(autoincrement())
   company_id   Int
   active_users Int
@@ -37,10 +48,11 @@ model growth_metrics {
 
   company      company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@map("growth_metrics")
   @@index([company_id, created_at])
 }
 
-model error_logs {
+model errorLogs {
   id            Int      @id @default(autoincrement())
   company_id    Int
   error_type    String
@@ -52,10 +64,11 @@ model error_logs {
 
   company       company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@map("error_logs")
   @@index([company_id, date])
 }
 
-model resource_usage {
+model resourceUsage {
   id            Int      @id @default(autoincrement())
   company_id    Int
   resource_type String
@@ -65,31 +78,8 @@ model resource_usage {
 
   company       company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@map("resource_usage")
   @@index([company_id, created_at])
 }
 
-// Update company model relations
-model company {
-  // ... existing fields ...
-
-  // Add new relations
-  user_activity    user_activity[]
-  feature_usage    feature_usage[]
-  growth_metrics   growth_metrics[]
-  error_logs       error_logs[]
-  resource_usage   resource_usage[]
-
-  // ... existing relations ...
-}
-
-// Update user model relations
-model user {
-  // ... existing fields ...
-
-  // Add new relations
-  user_activity    user_activity[]
-
-  // ... existing relations ...
-}
-
-// NextAuth.js Models remain the same...
+// Rest of your schema remains unchanged...

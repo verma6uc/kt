@@ -1,82 +1,19 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Activity, Users, TrendingUp, AlertTriangle } from "lucide-react"
 import { HealthStatusDashboard } from "@/components/companies/metrics/health-status-dashboard"
 import { PlatformUsageAnalytics } from "@/components/companies/metrics/platform-usage-analytics"
 import { GrowthTrendsAnalysis } from "@/components/companies/metrics/growth-trends-analysis"
+import type { MetricsResponse } from "@/types/metrics"
 
-interface CompanyMetrics {
-  company: {
-    id: number
-    name: string
-    identifier: string
-  }
-  metrics: {
-    health: {
-      current: {
-        uptime: number
-        errorRate: number
-        responseTime: number
-        activeUsers: number
-        criticalIssues: number
-      }
-      errorLogs: Array<{
-        date: string
-        error_type: string
-        count: number
-      }>
-      resourceUsage: Array<{
-        resource_type: string
-        usage_value: number
-        unit: string
-      }>
-    }
-    usage: {
-      patterns: {
-        dailyActiveUsers: Array<{
-          date: string
-          count: number
-        }>
-        featureUsage: Array<{
-          name: string
-          count: number
-        }>
-      }
-      systemMetrics: Array<{
-        metric_type: string
-        value: number
-        unit: string
-      }>
-      apiMetrics: Array<{
-        endpoint: string
-        status_code: number
-        duration_ms: number
-      }>
-    }
-    growth: {
-      activeUsers: Array<{
-        date: string
-        count: number
-      }>
-      apiUsage: Array<{
-        date: string
-        count: number
-      }>
-      storage: Array<{
-        date: string
-        value: number
-      }>
-    }
-  }
-}
-
-export default function CompanyDetailsPage({ params }: { params: { id: string } }) {
+export default function CompanyDetailsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [metrics, setMetrics] = useState<CompanyMetrics | null>(null)
+  const params = useParams()
+  const [metrics, setMetrics] = useState<MetricsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -113,7 +50,7 @@ export default function CompanyDetailsPage({ params }: { params: { id: string } 
       }
     }
 
-    if (session?.user && session.user.role === 'super_admin') {
+    if (session?.user && session.user.role === 'super_admin' && params.id) {
       fetchMetrics()
     }
   }, [session, params.id])

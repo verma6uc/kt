@@ -1,116 +1,101 @@
-import { prisma } from './prisma'
 import nodemailer from 'nodemailer'
 
-export class EmailService {
-  private static async getCompanyEmailConfig(companyId: string) {
-    const config = await prisma.company_config.findUnique({
-      where: { company_id: companyId }
-    })
+interface InvitationEmailParams {
+  to: string
+  name: string
+  companyName: string
+  token: string
+  expiresAt: Date
+}
 
-    if (!config?.smtp_host || !config?.smtp_port || !config?.smtp_user || !config?.smtp_password) {
-      throw new Error('Email configuration not found')
+export async function sendInvitationEmail({
+  to,
+  name,
+  companyName,
+  token,
+  expiresAt
+}: InvitationEmailParams) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
     }
+  })
 
-    return {
-      host: config.smtp_host,
-      port: config.smtp_port,
-      user: config.smtp_user,
-      password: config.smtp_password,
-      fromEmail: config.smtp_from_email || config.smtp_user,
-      fromName: config.smtp_from_name || 'System Notification'
+  const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invitation?token=${token}`
+  const expirationDate = expiresAt.toLocaleDateString()
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Welcome to ${companyName}!</h2>
+      <p>Hello ${name},</p>
+      <p>You have been invited to join ${companyName} as a Company Administrator.</p>
+      <p>To accept this invitation and set up your account, please click the button below:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${invitationLink}" 
+           style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+          Accept Invitation
+        </a>
+      </div>
+      <p>This invitation link will expire on ${expirationDate}.</p>
+      <p>If you did not expect this invitation, please ignore this email.</p>
+      <p>Best regards,<br>The ${companyName} Team</p>
+      <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;" />
+      <p style="color: #666; font-size: 12px;">
+        This is an automated message, please do not reply to this email.
+      </p>
+    </div>
+  `
+
+  await transporter.sendMail({
+    from: `"${companyName}" <${process.env.SMTP_FROM}>`,
+    to,
+    subject: `Invitation to join ${companyName} as Company Administrator`,
+    html
+  })
+}
+
+export async function sendPasswordResetEmail(to: string, token: string) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
     }
-  }
+  })
 
-  private static async createTransport(companyId: string) {
-    const config = await this.getCompanyEmailConfig(companyId)
-    
-    return nodemailer.createTransport({
-      host: config.host,
-      port: config.port,
-      secure: config.port === 465,
-      auth: {
-        user: config.user,
-        pass: config.password
-      }
-    })
-  }
+  const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`
 
-  static async sendPasswordExpiryNotification(
-    userId: string,
-    daysUntilExpiry: number
-  ) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        company: {
-          include: { config: true }
-        }
-      }
-    })
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Password Reset Request</h2>
+      <p>Hello,</p>
+      <p>We received a request to reset your password.</p>
+      <p>To reset your password, please click the button below:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetLink}" 
+           style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+          Reset Password
+        </a>
+      </div>
+      <p>If you did not request this password reset, please ignore this email.</p>
+      <p>Best regards,<br>The Support Team</p>
+      <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;" />
+      <p style="color: #666; font-size: 12px;">
+        This is an automated message, please do not reply to this email.
+      </p>
+    </div>
+  `
 
-    if (!user || !user.company.config) return
-
-    // Check if email notifications are enabled
-    const notifPref = user.company.config.notification_preference
-    if (notifPref !== 'email' && notifPref !== 'both') return
-
-    try {
-      const config = await this.getCompanyEmailConfig(user.company_id)
-      const transport = await this.createTransport(user.company_id)
-
-      await transport.sendMail({
-        from: `"${config.fromName}" <${config.fromEmail}>`,
-        to: user.email,
-        subject: `Password Expiry Notice - ${daysUntilExpiry} days remaining`,
-        html: `
-          <h1>Password Expiry Notice</h1>
-          <p>Dear ${user.name || user.email},</p>
-          <p>Your password will expire in ${daysUntilExpiry} days. Please change your password to maintain access to your account.</p>
-          <p>If you do not change your password before it expires, you will be required to change it at your next login.</p>
-          <br>
-          <p>Best regards,<br>${config.fromName}</p>
-        `
-      })
-    } catch (error) {
-      console.error('Failed to send password expiry notification:', error)
-    }
-  }
-
-  static async sendAccountLockedNotification(userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        company: {
-          include: { config: true }
-        }
-      }
-    })
-
-    if (!user || !user.company.config) return
-
-    // Check if email notifications are enabled
-    const notifPref = user.company.config.notification_preference
-    if (notifPref !== 'email' && notifPref !== 'both') return
-
-    try {
-      const config = await this.getCompanyEmailConfig(user.company_id)
-      const transport = await this.createTransport(user.company_id)
-
-      await transport.sendMail({
-        from: `"${config.fromName}" <${config.fromEmail}>`,
-        to: user.email,
-        subject: 'Account Locked - Multiple Failed Login Attempts',
-        html: `
-          <h1>Account Locked</h1>
-          <p>Dear ${user.name || user.email},</p>
-          <p>Your account has been locked due to multiple failed login attempts.</p>
-          <p>Please contact your administrator to unlock your account.</p>
-          <br>
-          <p>Best regards,<br>${config.fromName}</p>
-        `
-      })
-    } catch (error) {
-      console.error('Failed to send account locked notification:', error)
-    }
-  }
+  await transporter.sendMail({
+    from: `"Support" <${process.env.SMTP_FROM}>`,
+    to,
+    subject: 'Password Reset Request',
+    html
+  })
 }

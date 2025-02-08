@@ -39,20 +39,23 @@ export default function CompaniesPage() {
   const fetchCompanies = async () => {
     try {
       setLoading(true)
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        pageSize: pageSize.toString(),
-        search: searchQuery,
-        ...(selectedTypes.length && { type: selectedTypes.join(',') }),
-        ...(selectedStatuses.length && { status: selectedStatuses.join(',') })
-      })
+      const params = new URLSearchParams()
+      
+      // Add basic params
+      params.append('page', currentPage.toString())
+      params.append('pageSize', pageSize.toString())
+      params.append('search', searchQuery)
+
+      // Add array params
+      selectedTypes.forEach(type => params.append('types[]', type))
+      selectedStatuses.forEach(status => params.append('statuses[]', status))
 
       const response = await fetch(`/api/companies?${params}`)
       if (!response.ok) throw new Error('Failed to fetch companies')
       
       const data = await response.json()
       setCompanies(data.companies)
-      setTotalPages(data.totalPages)
+      setTotalPages(data.pagination.totalPages)
     } catch (error) {
       console.error('Error fetching companies:', error)
       showToast({

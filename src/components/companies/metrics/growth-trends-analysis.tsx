@@ -3,48 +3,42 @@
 import { useMemo } from 'react'
 import { TrendingUp, TrendingDown, ArrowRight } from 'lucide-react'
 
-interface GrowthMetrics {
-  activeUsers: Array<{
-    date: string
-    count: number
-  }>
-  apiUsage: Array<{
-    date: string
-    count: number
-  }>
-  storage: Array<{
-    date: string
-    value: number
-  }>
+interface GrowthMetricsProps {
+  metrics: {
+    trends: Array<{
+      date: Date | string
+      activeUsers: number
+      storage: number
+      apiCalls: number
+    }>
+  }
 }
 
-interface Props {
-  metrics: GrowthMetrics
-}
-
-export function GrowthTrendsAnalysis({ metrics }: Props) {
+export function GrowthTrendsAnalysis({ metrics }: GrowthMetricsProps) {
   const growthStats = useMemo(() => {
-    const calculateGrowth = (data: Array<{ date: string, count?: number, value?: number }>) => {
+    const calculateGrowth = (data: number[]) => {
       if (data.length < 2) return { current: 0, growth: 0, trend: 'neutral' as const }
       
       const current = data[data.length - 1]
       const previous = data[data.length - 2]
-      const currentValue = 'count' in current ? current.count! : current.value!
-      const previousValue = 'count' in previous ? previous.count! : previous.value!
-      
-      const growth = ((currentValue - previousValue) / previousValue) * 100
+      const growth = ((current - previous) / previous) * 100
       
       return {
-        current: currentValue,
+        current,
         growth,
         trend: growth > 0 ? 'up' as const : growth < 0 ? 'down' as const : 'neutral' as const
       }
     }
 
+    const trends = metrics.trends || []
+    const activeUsers = trends.map(t => t.activeUsers)
+    const apiCalls = trends.map(t => t.apiCalls)
+    const storage = trends.map(t => t.storage)
+
     return {
-      users: calculateGrowth(metrics.activeUsers),
-      api: calculateGrowth(metrics.apiUsage),
-      storage: calculateGrowth(metrics.storage)
+      users: calculateGrowth(activeUsers),
+      api: calculateGrowth(apiCalls),
+      storage: calculateGrowth(storage)
     }
   }, [metrics])
 
@@ -65,6 +59,13 @@ export function GrowthTrendsAnalysis({ metrics }: Props) {
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
     return num.toString()
   }
+
+  const formatDate = (date: Date | string) => {
+    const d = typeof date === 'string' ? new Date(date) : date
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  }
+
+  const trends = metrics.trends || []
 
   return (
     <div className="mt-6 space-y-8">
@@ -122,9 +123,9 @@ export function GrowthTrendsAnalysis({ metrics }: Props) {
             <div className="mt-4">
               <div className="h-64">
                 <div className="flex h-full items-end space-x-2">
-                  {metrics.activeUsers.map((point, index) => {
-                    const maxValue = Math.max(...metrics.activeUsers.map(p => p.count))
-                    const height = `${(point.count / maxValue) * 100}%`
+                  {trends.map((point, index) => {
+                    const maxValue = Math.max(...trends.map(p => p.activeUsers))
+                    const height = `${(point.activeUsers / maxValue) * 100}%`
                     
                     return (
                       <div
@@ -134,7 +135,7 @@ export function GrowthTrendsAnalysis({ metrics }: Props) {
                       >
                         <div className="w-full h-full bg-blue-500 opacity-75 rounded-t" />
                         <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 bg-gray-900 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
-                          {point.count} users
+                          {point.activeUsers} users
                         </div>
                       </div>
                     )
@@ -142,9 +143,9 @@ export function GrowthTrendsAnalysis({ metrics }: Props) {
                 </div>
               </div>
               <div className="mt-2 grid grid-cols-7 text-xs text-gray-500">
-                {metrics.activeUsers.map((point, index) => (
+                {trends.map((point, index) => (
                   <div key={index} className="text-center">
-                    {new Date(point.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    {formatDate(point.date)}
                   </div>
                 ))}
               </div>
@@ -159,9 +160,9 @@ export function GrowthTrendsAnalysis({ metrics }: Props) {
             <div className="mt-4">
               <div className="h-64">
                 <div className="flex h-full items-end space-x-2">
-                  {metrics.apiUsage.map((point, index) => {
-                    const maxValue = Math.max(...metrics.apiUsage.map(p => p.count))
-                    const height = `${(point.count / maxValue) * 100}%`
+                  {trends.map((point, index) => {
+                    const maxValue = Math.max(...trends.map(p => p.apiCalls))
+                    const height = `${(point.apiCalls / maxValue) * 100}%`
                     
                     return (
                       <div
@@ -171,7 +172,7 @@ export function GrowthTrendsAnalysis({ metrics }: Props) {
                       >
                         <div className="w-full h-full bg-green-500 opacity-75 rounded-t" />
                         <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 bg-gray-900 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
-                          {formatNumber(point.count)} calls
+                          {formatNumber(point.apiCalls)} calls
                         </div>
                       </div>
                     )
@@ -179,9 +180,9 @@ export function GrowthTrendsAnalysis({ metrics }: Props) {
                 </div>
               </div>
               <div className="mt-2 grid grid-cols-7 text-xs text-gray-500">
-                {metrics.apiUsage.map((point, index) => (
+                {trends.map((point, index) => (
                   <div key={index} className="text-center">
-                    {new Date(point.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    {formatDate(point.date)}
                   </div>
                 ))}
               </div>

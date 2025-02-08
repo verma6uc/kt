@@ -2,17 +2,20 @@
 
 import { useMemo } from 'react'
 import { AlertTriangle, CheckCircle, Clock } from 'lucide-react'
+import { health_status } from '@prisma/client'
 
 interface HealthMetrics {
   current: {
+    status: health_status
     uptime: number
     errorRate: number
     responseTime: number
     activeUsers: number
     criticalIssues: number
+    lastUpdated: Date | string
   }
   errorLogs: Array<{
-    date: string
+    date: Date | string
     error_type: string
     count: number
   }>
@@ -20,6 +23,7 @@ interface HealthMetrics {
     resource_type: string
     usage_value: number
     unit: string
+    created_at: Date | string
   }>
 }
 
@@ -48,6 +52,11 @@ export function HealthStatusDashboard({ metrics }: Props) {
     healthy: <CheckCircle className="h-5 w-5 text-green-500" />,
     warning: <Clock className="h-5 w-5 text-yellow-500" />,
     critical: <AlertTriangle className="h-5 w-5 text-red-500" />
+  }
+
+  const formatDate = (date: Date | string) => {
+    const d = typeof date === 'string' ? new Date(date) : date
+    return d.toLocaleDateString()
   }
 
   return (
@@ -162,7 +171,7 @@ export function HealthStatusDashboard({ metrics }: Props) {
                             {error.count}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {new Date(error.date).toLocaleDateString()}
+                            {formatDate(error.date)}
                           </td>
                         </tr>
                       ))}
