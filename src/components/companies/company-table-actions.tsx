@@ -51,7 +51,7 @@ export function CompanyTableActions({ company, onEdit, onStatusChange }: Company
   return (
     <Menu as="div" className="relative inline-block text-left">
       <div>
-        <Menu.Button className="flex items-center text-gray-400 hover:text-gray-600">
+        <Menu.Button className="flex items-center rounded-full p-1.5 text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
           <span className="sr-only">Open options</span>
           <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
         </Menu.Button>
@@ -73,12 +73,12 @@ export function CompanyTableActions({ company, onEdit, onStatusChange }: Company
                 <button
                   onClick={() => router.push(`/dashboard/companies/${company.id}`)}
                   className={`
-                    ${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'}
+                    ${active ? 'bg-blue-50 text-blue-700' : 'text-gray-700'}
                     group flex w-full items-center px-4 py-2 text-sm
                   `}
                 >
                   <Eye
-                    className="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500"
+                    className={`mr-3 h-4 w-4 ${active ? 'text-blue-500' : 'text-gray-400 group-hover:text-blue-500'}`}
                     aria-hidden="true"
                   />
                   View Details
@@ -91,12 +91,12 @@ export function CompanyTableActions({ company, onEdit, onStatusChange }: Company
                 <button
                   onClick={() => onEdit(company)}
                   className={`
-                    ${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'}
+                    ${active ? 'bg-blue-50 text-blue-700' : 'text-gray-700'}
                     group flex w-full items-center px-4 py-2 text-sm
                   `}
                 >
                   <Edit
-                    className="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500"
+                    className={`mr-3 h-4 w-4 ${active ? 'text-blue-500' : 'text-gray-400 group-hover:text-blue-500'}`}
                     aria-hidden="true"
                   />
                   Edit
@@ -113,7 +113,7 @@ export function CompanyTableActions({ company, onEdit, onStatusChange }: Company
                         onClick={() => handleStatusChange(action.value)}
                         disabled={loading}
                         className={`
-                          ${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'}
+                          ${active ? 'bg-blue-50 text-blue-700' : 'text-gray-700'}
                           ${loading ? 'opacity-50 cursor-not-allowed' : ''}
                           group flex w-full items-center px-4 py-2 text-sm
                         `}

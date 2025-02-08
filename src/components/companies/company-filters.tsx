@@ -37,19 +37,19 @@ export function CompanyFilters({
     <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
       <div className="relative flex-1 min-w-[240px]">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-4 w-4 text-gray-400" />
+          <Search className="h-4 w-4 text-blue-500" />
         </div>
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search companies..."
-          className="block w-full pl-9 pr-9 py-2 text-sm border border-gray-200 rounded-md bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow duration-200"
+          className="block w-full pl-9 pr-9 py-2 text-sm border border-gray-200 rounded-md bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200"
         />
         {searchQuery && (
           <button
             onClick={() => onSearchChange("")}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-blue-500 hover:text-blue-600"
           >
             <X className="h-4 w-4" />
           </button>

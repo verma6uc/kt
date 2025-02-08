@@ -16,6 +16,11 @@ All notable changes to this project will be documented in this file.
   - Updated form input styles with consistent icons and colors
   - Matched button styles and layout between create and edit modals
   - Unified font weights and spacing
+- Standardized blue color scheme across the application:
+  - Updated all buttons to use blue instead of indigo
+  - Changed loading spinners to blue
+  - Updated action menu hover states to blue
+  - Made multiselect dropdown icons and states consistent with blue theme
 
 ### Improved
 - Enhanced company creation modal:
