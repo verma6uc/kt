@@ -1,12 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getClientIp } from '@/lib/utils'
 import { audit_action } from '@prisma/client'
 import crypto from 'crypto'
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -90,7 +91,7 @@ export async function PATCH(
           company_id: id,
           action: audit_action.update,
           details: changes.join('\n'),
-          ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null,
+          ip_address: await getClientIp(request),
           user_agent: request.headers.get('user-agent') || null,
         },
       })

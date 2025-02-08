@@ -22,62 +22,62 @@ export function CompanyTableHeader({ sortField, sortDirection, onSort }: Company
   }
 
   return (
-    <thead>
+    <thead className="bg-gray-50">
       <tr>
         <th
           scope="col"
-          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+          className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 cursor-pointer"
           onClick={() => onSort('name')}
         >
           <div className="flex items-center">
-            <span className="font-bold">Company Name</span>
+            <span>Company Name</span>
             <SortIcon field="name" />
           </div>
         </th>
         <th
           scope="col"
-          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 cursor-pointer"
           onClick={() => onSort('industry')}
         >
           <div className="flex items-center">
-            <span className="font-bold">Industry</span>
+            <span>Industry</span>
             <SortIcon field="industry" />
           </div>
         </th>
         <th
           scope="col"
-          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 cursor-pointer"
           onClick={() => onSort('type')}
         >
           <div className="flex items-center">
-            <span className="font-bold">Type</span>
+            <span>Type</span>
             <SortIcon field="type" />
           </div>
         </th>
         <th
           scope="col"
-          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 cursor-pointer"
           onClick={() => onSort('_count.user')}
         >
           <div className="flex items-center">
-            <Users className="h-4 w-4 mr-1 text-blue-500" />
-            <span className="font-bold">Users</span>
+            <Users className="h-4 w-4 mr-1 text-gray-400" />
+            <span>Users</span>
             <SortIcon field="_count.user" />
           </div>
         </th>
         <th
           scope="col"
-          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 cursor-pointer"
           onClick={() => onSort('status')}
         >
           <div className="flex items-center">
-            <span className="font-bold">Status</span>
+            <span>Status</span>
             <SortIcon field="status" />
           </div>
         </th>
         <th
           scope="col"
-          className="relative px-6 py-3"
+          className="relative py-3.5 pl-3 pr-4 sm:pr-6"
         >
           <span className="sr-only">Actions</span>
         </th>

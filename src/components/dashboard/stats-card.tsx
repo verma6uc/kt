@@ -22,7 +22,7 @@ export function StatsCard({
       <div className="p-5">
         <div className="flex items-center">
           <div className="flex-shrink-0">
-            <Icon className={`h-6 w-6 ${iconColor}`} aria-hidden="true" />
+            {<Icon className={`h-6 w-6 ${iconColor}`} aria-hidden="true" />}
           </div>
           <div className="ml-5 w-0 flex-1">
             <dl>

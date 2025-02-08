@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
 import { sendEmail } from '@/lib/email-service'
+import { getClientIp } from '@/lib/utils'
 import crypto from 'crypto'
 
 function formatDateTime(date: Date) {
@@ -297,7 +298,7 @@ export async function POST(
         company_id: companyId,
         action: 'invitation_sent',
         details: `Invitation sent to ${email} for company ${company.name}`,
-        ip_address: request.headers.get('x-forwarded-for'),
+        ip_address: await getClientIp(request),
         user_agent: request.headers.get('user-agent')
       }
     })
@@ -384,8 +385,8 @@ export async function PUT(
     }
 
     if (action === 'resend') {
-      if (invitation.status !== 'pending') {
-        return new NextResponse('Can only resend pending invitations', { status: 400 })
+      if (!['pending', 'cancelled', 'expired'].includes(invitation.status)) {
+        return new NextResponse('Can only resend pending, cancelled, or expired invitations', { status: 400 })
       }
 
       // Generate new token
@@ -399,6 +400,7 @@ export async function PUT(
         data: {
           token: newToken,
           expires_at: newExpiresAt,
+          status: 'pending',
           reminder_sent_at: new Date(),
           reminder_count: { increment: 1 },
           updated_at: new Date()
@@ -413,7 +415,7 @@ export async function PUT(
           company_id: companyId,
           action: 'invitation_resent',
           details: `Invitation resent to ${invitation.email} for company ${invitation.company.name}`,
-          ip_address: request.headers.get('x-forwarded-for'),
+          ip_address: await getClientIp(request),
           user_agent: request.headers.get('user-agent')
         }
       })
@@ -473,7 +475,7 @@ export async function PUT(
           company_id: companyId,
           action: 'invitation_cancelled',
           details: `Invitation cancelled for ${invitation.email} for company ${invitation.company.name}`,
-          ip_address: request.headers.get('x-forwarded-for'),
+          ip_address: await getClientIp(request),
           user_agent: request.headers.get('user-agent')
         }
       })

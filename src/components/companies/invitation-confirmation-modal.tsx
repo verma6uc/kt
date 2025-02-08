@@ -35,8 +35,8 @@ export default function InvitationConfirmationModal({
           </button>
         </div>
 
-        <div className="mb-6">
-          <p className="text-gray-700">
+        <div className="mb-6 text-left">
+          <p className="text-gray-700 text-left">
             {action === 'resend' ? (
               <>
                 Are you sure you want to resend the invitation to <strong>{email}</strong>?

@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { getClientIp } from '@/lib/utils'
 import { prisma } from '@/lib/prisma'
 import { writeFile, mkdir } from 'fs/promises'
 import { company_type, company_status, audit_action, notification_priority, Prisma } from '@prisma/client'
@@ -8,7 +9,7 @@ import { nanoid } from 'nanoid'
 import path from 'path'
 import crypto from 'crypto'
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
         company_id: company.id,
         action: audit_action.create,
         details: auditDetails,
-        ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null,
+        ip_address: await getClientIp(request),
         user_agent: request.headers.get('user-agent') || null
       }
     })
@@ -117,7 +118,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -240,7 +241,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -306,7 +307,7 @@ export async function PATCH(request: Request) {
           company_id: id,
           action: audit_action.update,
           details: changes.join('\n'),
-          ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null,
+          ip_address: await getClientIp(request),
           user_agent: request.headers.get('user-agent') || null,
         },
       })
