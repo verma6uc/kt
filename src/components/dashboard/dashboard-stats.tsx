@@ -65,27 +65,42 @@ export function DashboardStats() {
         
         // Calculate basic stats
         const activeCompanies = companies.filter((c: Company) => c.status === 'active').length
-        const totalUsers = companies.reduce((sum: number, company: Company) => sum + company._count.user, 0)
-        const totalApiCalls = companies.reduce((sum: number, company: Company) => sum + company._count.api_metrics, 0)
-        const avgApiCalls = Math.round(totalApiCalls / companies.length)
+        const totalUsers = companies.reduce((sum: number, company: Company) => 
+          sum + (company._count?.user || 0), 0)
+        const totalApiCalls = companies.reduce((sum: number, company: Company) => 
+          sum + (company._count?.api_metrics || 0), 0)
+        const avgApiCalls = companies.length > 0 ? Math.round(totalApiCalls / companies.length) : 0
         
         // Calculate health stats
         const healthyCompanies = companies.filter((c: Company) => 
+          c.company_health && 
+          c.company_health.length > 0 && 
           c.company_health[0]?.status === 'healthy'
         ).length
 
         // Calculate average response time from recent API metrics
         const allResponseTimes = companies.flatMap((c: Company) => 
-          c.api_metrics.map((m: { duration_ms: number }) => m.duration_ms)
-        )
-        const avgResponseTime = Math.round(
-          allResponseTimes.reduce((sum: number, time: number) => sum + time, 0) / allResponseTimes.length
-        )
+          (c.api_metrics || []).map(m => m.response_time)
+        ).filter(Boolean)
+        
+        const avgResponseTime = allResponseTimes.length > 0
+          ? Math.round(allResponseTimes.reduce((sum: number, time: number) => sum + time, 0) / allResponseTimes.length)
+          : 0
 
         // Calculate average uptime
-        const avgUptime = companies.reduce((sum: number, c: Company) => 
-          sum + (c.company_health[0]?.uptime_percentage || 100)
-        , 0) / companies.length
+        const uptimes: number[] = companies
+          .map((c: Company) => 
+            c.company_health && 
+            c.company_health.length > 0 && 
+            c.company_health[0]?.uptime_percentage !== undefined
+              ? c.company_health[0].uptime_percentage
+              : null
+          )
+          .filter((uptime: number | null): uptime is number => uptime !== null)
+        
+        const avgUptime = uptimes.length > 0
+          ? uptimes.reduce((sum: number, uptime: number) => sum + uptime, 0) / uptimes.length
+          : 100
 
         // Calculate status distribution
         const statusCounts = companies.reduce((acc: Record<string, number>, company: Company) => {
@@ -95,7 +110,11 @@ export function DashboardStats() {
 
         // Calculate health distribution
         const healthCounts = companies.reduce((acc: Record<string, number>, company: Company) => {
-          const health = company.company_health[0]?.status || 'unknown'
+          const health = company.company_health && 
+            company.company_health.length > 0 && 
+            company.company_health[0]?.status
+              ? company.company_health[0].status
+              : 'unknown'
           acc[health] = (acc[health] || 0) + 1
           return acc
         }, {} as Record<string, number>)
@@ -108,14 +127,14 @@ export function DashboardStats() {
         }).reverse()
 
         // Initialize API calls by day with 0 for each day
-        const initialApiCallsByDay = last7Days.reduce((acc, day) => {
+        const initialApiCallsByDay = last7Days.reduce((acc: Record<string, number>, day: string) => {
           acc[day] = 0
           return acc
         }, {} as Record<string, number>)
 
         // Count API calls for each day
         const apiCallsByDay = companies.reduce((acc: Record<string, number>, company: Company) => {
-          company.api_metrics.forEach((metric: { created_at: Date | string }) => {
+          (company.api_metrics || []).forEach(metric => {
             const date = typeof metric.created_at === 'string' ? new Date(metric.created_at) : metric.created_at
             const day = date.toLocaleDateString('en-US', { weekday: 'short' })
             if (acc[day] !== undefined) {
@@ -257,7 +276,7 @@ export function DashboardStats() {
         />
         <StatsCard
           title="API Success Rate"
-          value={((stats.apiCallsOverTime.data.reduce((a, b) => a + b, 0) / 
+          value={((stats.apiCallsOverTime.data.reduce((a: number, b: number) => a + b, 0) / 
             (stats.apiCallsOverTime.data.length || 1)) || 0).toFixed(0)}
           subtitle="calls/day"
           icon={Database}

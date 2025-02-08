@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2025-02-08
 
 ### Changed
+- Improved company edit form UI:
+  - Enhanced input styling and transitions
+  - Added required field indicators
+  - Added input patterns and validation
+  - Added helpful placeholder text
+  - Added proper HTML5 input attributes
+  - Improved error messages
+  - Improved spacing and organization
+
+### Changed
 - Restricted company edit functionality for super admins:
   - Limited editable fields to company name, identifier, and logo
   - Added validation for identifier uniqueness
