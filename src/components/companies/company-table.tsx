@@ -19,6 +19,7 @@ interface CompanyTableProps {
   pagination: PaginationInfo
   onPageChange: (page: number) => void
   onStatusChange: () => void
+  onEdit: (company: Company) => void
   onSort?: (field: SortableField, direction: 'asc' | 'desc') => void
   sortField?: SortableField
   sortDirection?: 'asc' | 'desc'
@@ -29,6 +30,7 @@ export function CompanyTable({
   pagination, 
   onPageChange, 
   onStatusChange,
+  onEdit,
   onSort,
   sortField = 'name',
   sortDirection = 'asc'
@@ -66,6 +68,7 @@ export function CompanyTable({
                 key={company.id}
                 company={company}
                 onStatusChange={onStatusChange}
+                onEdit={onEdit}
               />
             ))}
           </tbody>

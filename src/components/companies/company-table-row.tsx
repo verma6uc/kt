@@ -7,16 +7,10 @@ import Link from 'next/link'
 interface CompanyTableRowProps {
   company: Company
   onStatusChange: () => void
+  onEdit: (company: Company) => void
 }
 
-const formatText = (text: string) => {
-  return text
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ')
-}
-
-export function CompanyTableRow({ company, onStatusChange }: CompanyTableRowProps) {
+export function CompanyTableRow({ company, onStatusChange, onEdit }: CompanyTableRowProps) {
   return (
     <tr key={company.id}>
       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
@@ -70,10 +64,17 @@ export function CompanyTableRow({ company, onStatusChange }: CompanyTableRowProp
       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
         <CompanyTableActions 
           company={company} 
-          onEdit={() => {}} // We'll handle edit in a separate PR
+          onEdit={() => onEdit(company)}
           onStatusChange={onStatusChange}
         />
       </td>
     </tr>
   )
+}
+
+const formatText = (text: string) => {
+  return text
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
 }

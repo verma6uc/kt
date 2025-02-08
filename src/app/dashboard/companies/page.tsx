@@ -3,6 +3,7 @@
 import { CompanyTable } from "@/components/companies/company-table"
 import { CompanyFilters } from "@/components/companies/company-filters"
 import { CompanyCreateModal } from "@/components/companies/company-create-modal"
+import { CompanyEditModal } from "@/components/companies/company-edit-modal"
 import { useState, useEffect } from "react"
 import { Company } from "@/types/company"
 import { useToast } from "@/components/providers/toast-provider"
@@ -25,6 +26,8 @@ export default function CompaniesPage() {
 
   // State
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState<PaginationInfo>({
@@ -129,6 +132,24 @@ export default function CompaniesPage() {
     })
   }
 
+  // Handle company edit
+  const handleEdit = (company: Company) => {
+    setSelectedCompany(company)
+    setShowEditModal(true)
+  }
+
+  // Handle company edit success
+  const handleEditSuccess = () => {
+    setShowEditModal(false)
+    setSelectedCompany(null)
+    fetchCompanies()
+    showToast({
+      type: 'success',
+      title: 'Success',
+      message: 'Company updated successfully'
+    })
+  }
+
   // Handle company status change
   const handleStatusUpdate = () => {
     fetchCompanies()
@@ -179,6 +200,7 @@ export default function CompaniesPage() {
               onSort={handleSort}
               sortField={sortField}
               sortDirection={sortDirection}
+              onEdit={handleEdit}
             />
           )}
         </div>
@@ -189,6 +211,18 @@ export default function CompaniesPage() {
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
+        />
+      )}
+
+      {showEditModal && selectedCompany && (
+        <CompanyEditModal
+          isOpen={showEditModal}
+          company={selectedCompany}
+          onClose={() => {
+            setShowEditModal(false)
+            setSelectedCompany(null)
+          }}
+          onSuccess={handleEditSuccess}
         />
       )}
     </div>
