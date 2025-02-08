@@ -9,6 +9,7 @@ interface DeactivationResult {
   error?: string
   usersUpdated: number
   emailsSent: number
+  sessionsTerminated: number
 }
 
 interface CompanyAdmin {
@@ -43,7 +44,24 @@ export async function handleCompanyDeactivation(
         throw new Error('Company not found')
       }
 
-      // 2. Update all company users to suspended
+      // 2. Get all users of the company
+      const companyUsers = await tx.user.findMany({
+        where: { company_id: companyId },
+        select: { id: true }
+      })
+
+      const userIds = companyUsers.map(user => user.id)
+
+      // 3. Delete all sessions for company users
+      const deleteSessionsResult = await tx.session.deleteMany({
+        where: {
+          user_id: {
+            in: userIds
+          }
+        }
+      })
+
+      // 4. Update all company users to suspended
       const updateUsersResult = await tx.user.updateMany({
         where: {
           company_id: companyId,
@@ -56,18 +74,18 @@ export async function handleCompanyDeactivation(
         }
       })
 
-      // 3. Create audit log for company deactivation
+      // 5. Create audit log for company deactivation
       const deactivationAuditLog = await tx.audit_log.create({
         data: {
           uuid: uuidv4(),
           user_id: performedByUserId,
           company_id: companyId,
           action: audit_action.update,
-          details: `Company ${company.name} (${company.identifier}) was deactivated. ${updateUsersResult.count} users were suspended.`
+          details: `Company ${company.name} (${company.identifier}) was deactivated. ${updateUsersResult.count} users were suspended and ${deleteSessionsResult.count} sessions were terminated.`
         }
       })
 
-      // 4. Create audit logs for each user suspension
+      // 6. Create audit logs for each user suspension
       if (updateUsersResult.count > 0) {
         await tx.audit_log.create({
           data: {
@@ -80,7 +98,7 @@ export async function handleCompanyDeactivation(
         })
       }
 
-      // 5. Send emails to all company admins
+      // 7. Send emails to all company admins
       const emailTemplate = getCompanyDeactivationEmailTemplate(company.name)
       const emailPromises = company.user.map((admin: CompanyAdmin) =>
         sendEmail({
@@ -100,7 +118,8 @@ export async function handleCompanyDeactivation(
       return {
         success: true,
         usersUpdated: updateUsersResult.count,
-        emailsSent: successfulEmails
+        emailsSent: successfulEmails,
+        sessionsTerminated: deleteSessionsResult.count
       }
     })
 
@@ -111,7 +130,8 @@ export async function handleCompanyDeactivation(
       success: false,
       error: error instanceof Error ? error.message : 'An unknown error occurred',
       usersUpdated: 0,
-      emailsSent: 0
+      emailsSent: 0,
+      sessionsTerminated: 0
     }
   }
 }

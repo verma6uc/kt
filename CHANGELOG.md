@@ -7,8 +7,10 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Enhanced company deactivation workflow:
   - Automatically suspends all company users
+  - Immediately terminates all active user sessions
   - Sends email notifications to company admins
   - Creates detailed audit logs for deactivation and user suspensions
+  - Forces immediate logout of all company users
 - CSV export functionality for companies:
   - Added export button next to "Add Company"
   - Exports all company data in CSV format
@@ -46,3 +48,11 @@ All notable changes to this project will be documented in this file.
   - Added proper error handling for status changes
   - Improved feedback for successful/failed operations
   - Added transaction support for atomic operations
+  - Added session cleanup for deactivated companies
+
+### Security
+- Enhanced session management:
+  - Automatic session termination on company deactivation
+  - Proper cleanup of all user sessions
+  - Audit logging of session terminations
+  - Immediate effect on all logged-in users
