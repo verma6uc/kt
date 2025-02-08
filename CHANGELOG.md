@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2025-02-07
+
+### Added
+- User count in company list API response
+- Extended Company type definitions for better TypeScript support
+
 ## [Initial Release] - 2025-02-07
 
 ### Added
