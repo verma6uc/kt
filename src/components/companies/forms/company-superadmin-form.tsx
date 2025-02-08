@@ -67,52 +67,10 @@ export function CompanySuperadminForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-8">
+      {/* Company Logo */}
       <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-          Company Name
-        </label>
-        <div className="mt-1">
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-            disabled={disabled}
-          />
-          {errors.name && (
-            <p className="mt-1 text-sm text-red-600">{errors.name}</p>
-          )}
-        </div>
-      </div>
-
-      <div>
-        <label htmlFor="identifier" className="block text-sm font-medium text-gray-700">
-          Identifier
-        </label>
-        <div className="mt-1">
-          <input
-            type="text"
-            id="identifier"
-            name="identifier"
-            value={formData.identifier}
-            onChange={(e) => setFormData({ ...formData, identifier: e.target.value.toUpperCase() })}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-            disabled={disabled}
-          />
-          {errors.identifier && (
-            <p className="mt-1 text-sm text-red-600">{errors.identifier}</p>
-          )}
-        </div>
-        <p className="mt-1 text-sm text-gray-500">
-          Must contain only uppercase letters, numbers, and hyphens
-        </p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-gray-700 mb-4">
           Company Logo
         </label>
         <div className="mt-1">
@@ -124,11 +82,81 @@ export function CompanySuperadminForm({
         </div>
       </div>
 
+      {/* Company Name */}
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+          Company Name <span className="text-red-500">*</span>
+        </label>
+        <div className="mt-1">
+          <input
+            type="text"
+            id="name"
+            name="name"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className={`
+              block w-full rounded-md shadow-sm sm:text-sm
+              ${errors.name ? 'border-red-300' : 'border-gray-300'}
+              focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+              disabled:bg-gray-100 disabled:cursor-not-allowed
+              transition duration-150 ease-in-out
+            `}
+            placeholder="Enter company name"
+            disabled={disabled}
+            autoComplete="organization"
+          />
+          {errors.name && (
+            <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Company Identifier */}
+      <div>
+        <label htmlFor="identifier" className="block text-sm font-medium text-gray-700">
+          Identifier <span className="text-red-500">*</span>
+        </label>
+        <div className="mt-1">
+          <input
+            type="text"
+            id="identifier"
+            name="identifier"
+            value={formData.identifier}
+            onChange={(e) => setFormData({ ...formData, identifier: e.target.value.toUpperCase() })}
+            className={`
+              block w-full rounded-md shadow-sm sm:text-sm uppercase
+              ${errors.identifier ? 'border-red-300' : 'border-gray-300'}
+              focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+              disabled:bg-gray-100 disabled:cursor-not-allowed
+              transition duration-150 ease-in-out
+            `}
+            placeholder="COMPANY-ID"
+            pattern="[A-Z0-9-]+"
+            maxLength={20}
+            disabled={disabled}
+          />
+          {errors.identifier && (
+            <p className="mt-1 text-sm text-red-600">{errors.identifier}</p>
+          )}
+          <p className="mt-1 text-sm text-gray-500">
+            Must contain only uppercase letters, numbers, and hyphens (e.g., ACME-123)
+          </p>
+        </div>
+      </div>
+
+      {/* Submit Button */}
       <div className="flex justify-end">
         <button
           type="submit"
           disabled={disabled}
-          className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`
+            inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm
+            ${disabled
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
+            }
+            transition-colors duration-150 ease-in-out
+          `}
         >
           Save Changes
         </button>
