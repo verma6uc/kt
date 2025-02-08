@@ -1,5 +1,6 @@
 import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 
 export class AuthService {
   // Check if password was used before
@@ -82,7 +83,7 @@ export class AuthService {
     })
   }
 
-  // Check if user can login (not locked and single session check)
+  // Check if user can login (not locked)
   static async canUserLogin(userId: string): Promise<{
     canLogin: boolean
     reason?: string
@@ -92,8 +93,7 @@ export class AuthService {
       include: {
         company: {
           include: { security_config: true }
-        },
-        sessions: true
+        }
       }
     })
 
@@ -103,10 +103,6 @@ export class AuthService {
 
     if (user.status === 'locked') {
       return { canLogin: false, reason: 'Account is locked' }
-    }
-
-    if (user.company.security_config?.enforce_single_session && user.sessions.length > 0) {
-      return { canLogin: false, reason: 'Another session is active' }
     }
 
     return { canLogin: true }
@@ -141,6 +137,7 @@ export class AuthService {
   ): Promise<void> {
     await prisma.password_history.create({
       data: {
+        uuid: crypto.randomUUID(),
         user_id: parseInt(userId),
         company_id: parseInt(companyId),
         password: hashedPassword
@@ -166,6 +163,7 @@ export class AuthService {
   }): Promise<void> {
     const auditLog = await prisma.audit_log.create({
       data: {
+        uuid: crypto.randomUUID(),
         user_id: parseInt(userId),
         company_id: parseInt(companyId),
         action,

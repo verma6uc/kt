@@ -1,135 +1,116 @@
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
+import crypto from 'crypto'
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        email: { label: "Email", type: "email" }
       },
       async authorize(credentials) {
+        console.log('=== Auth Flow Start ===')
+        console.log('1. Authorize function called with credentials:', { email: credentials?.email })
+
         if (!credentials?.email) {
+          console.log('No email provided')
           throw new Error('CredentialsSignin')
         }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email
-          },
-          include: {
-            company: {
-              include: {
-                security_config: true
+        try {
+          console.log('2. Finding user in database')
+          const user = await prisma.user.findUnique({
+            where: {
+              email: credentials.email
+            },
+            include: {
+              company: {
+                include: {
+                  security_config: true
+                }
               }
             }
+          })
+
+          console.log('3. User lookup result:', user ? {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            status: user.status
+          } : 'No user found')
+
+          if (!user) {
+            throw new Error('CredentialsSignin')
           }
-        })
 
-        if (!user) {
-          throw new Error('CredentialsSignin')
-        }
-
-        // Check if account is locked
-        if (user.status === 'locked') {
-          await prisma.audit_log.create({
+          // Log successful login
+          console.log('4. Creating audit log')
+          const auditLog = await prisma.audit_log.create({
             data: {
+              uuid: crypto.randomUUID(),
               user_id: user.id,
               company_id: user.company_id,
-              action: 'login_failed',
-              details: 'Login attempt on locked account',
+              action: 'login',
+              details: 'Successful login',
               ip_address: '127.0.0.1',
               user_agent: 'Unknown'
             }
           })
-          throw new Error('AccountLocked')
-        }
 
-        // Check if account is suspended
-        if (user.status === 'suspended') {
-          await prisma.audit_log.create({
-            data: {
-              user_id: user.id,
-              company_id: user.company_id,
-              action: 'login_failed',
-              details: 'Login attempt on suspended account',
-              ip_address: '127.0.0.1',
-              user_agent: 'Unknown'
+          console.log('5. Preparing user data for session')
+          const userData = {
+            id: user.id.toString(),
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            companyId: user.company_id.toString(),
+            company: {
+              id: user.company.id.toString(),
+              name: user.company.name,
+              identifier: user.company.identifier,
+              securityConfig: user.company.security_config
             }
-          })
-          throw new Error('AccessDenied')
-        }
-
-        // Reset failed login attempts on successful login
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            failed_login_attempts: 0,
-            last_failed_attempt: null
           }
-        })
 
-        // Log successful login
-        const auditLog = await prisma.audit_log.create({
-          data: {
-            user_id: user.id,
-            company_id: user.company_id,
-            action: 'login',
-            details: 'Successful login',
-            ip_address: '127.0.0.1',
-            user_agent: 'Unknown'
-          }
-        })
+          console.log('6. Returning user data:', userData)
+          console.log('=== Auth Flow Complete ===')
+          return userData
 
-        // Add audit metadata
-        await prisma.audit_metadata.createMany({
-          data: [
-            {
-              audit_log_id: auditLog.id,
-              key: 'email',
-              value: user.email
-            },
-            {
-              audit_log_id: auditLog.id,
-              key: 'timestamp',
-              value: new Date().toISOString()
-            }
-          ]
-        })
-
-        return {
-          id: user.id.toString(),
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          companyId: user.company_id.toString(),
-          company: {
-            id: user.company.id.toString(),
-            name: user.company.name,
-            identifier: user.company.identifier,
-            securityConfig: user.company.security_config
-          }
+        } catch (error) {
+          console.error('Error in authorize function:', error)
+          throw error
         }
       }
     })
   ],
   callbacks: {
     async jwt({ token, user }) {
+      console.log('=== JWT Callback ===')
+      console.log('Input token:', token)
+      console.log('Input user:', user)
+
       if (user) {
-        return {
+        const newToken = {
           ...token,
           id: user.id,
           role: user.role,
           companyId: user.companyId,
           company: user.company
         }
+        console.log('New token:', newToken)
+        return newToken
       }
+      console.log('Returning existing token')
       return token
     },
     async session({ session, token }) {
-      return {
+      console.log('=== Session Callback ===')
+      console.log('Input session:', session)
+      console.log('Input token:', token)
+
+      const newSession = {
         ...session,
         user: {
           ...session.user,
@@ -139,6 +120,8 @@ export const authOptions: NextAuthOptions = {
           company: token.company
         }
       }
+      console.log('New session:', newSession)
+      return newSession
     }
   },
   pages: {
@@ -147,6 +130,18 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
     maxAge: 24 * 60 * 60, // 24 hours
+  },
+  debug: true,
+  logger: {
+    error(code, metadata) {
+      console.error('NextAuth Error:', code, metadata)
+    },
+    warn(code) {
+      console.warn('NextAuth Warning:', code)
+    },
+    debug(code, metadata) {
+      console.log('NextAuth Debug:', code, metadata)
+    }
   },
   secret: process.env.NEXTAUTH_SECRET
 }

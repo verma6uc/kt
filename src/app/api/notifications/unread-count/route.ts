@@ -10,10 +10,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const count = await NotificationService.getUnreadCount(
-      session.user.id,
-      session.user.companyId
-    )
+    const count = await NotificationService.getUnreadCount(session.user.id)
 
     return NextResponse.json({ count })
   } catch (error) {

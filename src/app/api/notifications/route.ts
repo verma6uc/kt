@@ -38,10 +38,25 @@ export async function GET(request: Request) {
       ]
     }
 
+    console.log('Session user ID:', session.user.id)
+    console.log('Where clause:', JSON.stringify(whereClause, null, 2))
+
+    // Enable query logging
+    prisma.$use(async (params, next) => {
+      const before = Date.now()
+      const result = await next(params)
+      const after = Date.now()
+      console.log(`Query ${params.model}.${params.action} took ${after - before}ms`)
+      console.log('Query params:', JSON.stringify(params, null, 2))
+      return result
+    })
+
     // Get total count for pagination
     const totalCount = await prisma.notification.count({
       where: whereClause
     })
+
+    console.log('Total count:', totalCount)
 
     // Get notifications with pagination, search, and sorting
     const notifications = await prisma.notification.findMany({
@@ -61,6 +76,8 @@ export async function GET(request: Request) {
         }
       }
     })
+
+    console.log('Found notifications:', notifications.length)
 
     return NextResponse.json({
       notifications,

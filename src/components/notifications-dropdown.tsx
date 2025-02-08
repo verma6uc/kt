@@ -22,13 +22,15 @@ export default function NotificationsDropdown() {
 
   return (
     <Menu as="div" className="relative">
-      <Menu.Button className="relative rounded-full p-1 hover:bg-gray-100 focus:outline-none">
-        <Bell className="h-6 w-6 text-blue-600" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-medium text-white">
-            {unreadCount}
-          </span>
-        )}
+      <Menu.Button className="relative flex items-center rounded-full p-1 hover:bg-gray-100 focus:outline-none">
+        <div className="relative">
+          <Bell className="h-6 w-6 text-blue-600" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-2.5 -right-2.5 text-xs font-medium text-blue-600">
+              {unreadCount}
+            </span>
+          )}
+        </div>
       </Menu.Button>
 
       <Transition

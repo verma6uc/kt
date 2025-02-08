@@ -1,61 +1,67 @@
 "use client"
 
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
 import { CompanyTable } from "@/components/companies/company-table"
 import { CompanyFilters } from "@/components/companies/company-filters"
 import { CompanyCreateModal } from "@/components/companies/company-create-modal"
-import { CompanyEditModal } from "@/components/companies/company-edit-modal"
+import { useState, useEffect } from "react"
 import { Company } from "@/types/company"
 import { useToast } from "@/components/providers/toast-provider"
-import { Pagination } from "@/components/ui/pagination"
+import { Plus } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+
+interface PaginationInfo {
+  currentPage: number
+  pageSize: number
+  totalCount: number
+  totalPages: number
+}
 
 export default function CompaniesPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { showToast } = useToast()
-  
+
+  // State
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [pageSize] = useState(10)
-  const [searchQuery, setSearchQuery] = useState("")
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    currentPage: 1,
+    pageSize: 10,
+    totalCount: 0,
+    totalPages: 0
+  })
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || "")
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
-  const [createModalOpen, setCreateModalOpen] = useState(false)
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
 
-  // Auth check
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    }
-  }, [status, router])
-
-  // Fetch companies
+  // Fetch companies with filters and pagination
   const fetchCompanies = async () => {
     try {
       setLoading(true)
       const params = new URLSearchParams()
       
       // Add basic params
-      params.append('page', currentPage.toString())
-      params.append('pageSize', pageSize.toString())
-      params.append('search', searchQuery)
-
+      params.set('page', pagination.currentPage.toString())
+      params.set('pageSize', pagination.pageSize.toString())
+      
+      // Add search if present
+      if (searchQuery) {
+        params.set('search', searchQuery)
+      }
+      
       // Add array params
       selectedTypes.forEach(type => params.append('types[]', type))
       selectedStatuses.forEach(status => params.append('statuses[]', status))
 
       const response = await fetch(`/api/companies?${params}`)
       if (!response.ok) throw new Error('Failed to fetch companies')
-      
       const data = await response.json()
+      
       setCompanies(data.companies)
-      setTotalPages(data.pagination.totalPages)
+      setPagination(data.pagination)
     } catch (error) {
       console.error('Error fetching companies:', error)
       showToast({
@@ -68,15 +74,35 @@ export default function CompaniesPage() {
     }
   }
 
+  // Initial fetch and refetch on filter/page changes
   useEffect(() => {
-    if (session?.user) {
-      fetchCompanies()
-    }
-  }, [session, currentPage, pageSize, searchQuery, selectedTypes, selectedStatuses])
+    fetchCompanies()
+  }, [pagination.currentPage, searchQuery, selectedTypes, selectedStatuses])
 
-  const handleCreateCompany = async () => {
-    setCreateModalOpen(false)
-    await fetchCompanies()
+  // Handle search and filter changes
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query)
+    setPagination(prev => ({ ...prev, currentPage: 1 }))
+  }
+
+  const handleTypeChange = (types: string[]) => {
+    setSelectedTypes(types)
+    setPagination(prev => ({ ...prev, currentPage: 1 }))
+  }
+
+  const handleStatusChange = (statuses: string[]) => {
+    setSelectedStatuses(statuses)
+    setPagination(prev => ({ ...prev, currentPage: 1 }))
+  }
+
+  const handlePageChange = (page: number) => {
+    setPagination(prev => ({ ...prev, currentPage: page }))
+  }
+
+  // Handle company creation success
+  const handleCreateSuccess = () => {
+    setShowCreateModal(false)
+    fetchCompanies()
     showToast({
       type: 'success',
       title: 'Success',
@@ -84,99 +110,63 @@ export default function CompaniesPage() {
     })
   }
 
-  const handleEditCompany = async () => {
-    setEditModalOpen(false)
-    setSelectedCompany(null)
-    await fetchCompanies()
-    showToast({
-      type: 'success',
-      title: 'Success',
-      message: 'Company updated successfully'
-    })
-  }
-
-  const handleEdit = (company: Company) => {
-    setSelectedCompany(company)
-    setEditModalOpen(true)
-  }
-
-  if (status === 'loading' || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    )
-  }
-
-  if (!session) {
-    return null
+  // Handle company status change
+  const handleStatusUpdate = () => {
+    fetchCompanies()
   }
 
   return (
-    <div>
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
-        <div className="sm:flex sm:items-center">
-          <div className="sm:flex-auto">
-            <h1 className="text-2xl font-semibold text-gray-900">Companies</h1>
-            <p className="mt-2 text-sm text-gray-700">
-              A list of all companies including their name, status, and other details.
-            </p>
-          </div>
-          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-            <button
-              type="button"
-              onClick={() => setCreateModalOpen(true)}
-              className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
-            >
-              Add Company
-            </button>
-          </div>
+    <div className="px-4 sm:px-6 lg:px-8 py-8">
+      <div className="sm:flex sm:items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Companies</h1>
+          <p className="mt-2 text-sm text-gray-700">
+            Manage and monitor all registered companies
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowCreateModal(true)}
+          className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          <Plus className="-ml-1 mr-2 h-5 w-5" />
+          Add Company
+        </button>
+      </div>
 
-        <div className="mt-8">
+      <div className="bg-white shadow-sm rounded-lg">
+        <div className="border-b border-gray-200 px-4 py-5 sm:px-6">
           <CompanyFilters
             searchQuery={searchQuery}
             selectedTypes={selectedTypes}
             selectedStatuses={selectedStatuses}
-            onSearchChange={setSearchQuery}
-            onTypeChange={setSelectedTypes}
-            onStatusChange={setSelectedStatuses}
+            onSearchChange={handleSearchChange}
+            onTypeChange={handleTypeChange}
+            onStatusChange={handleStatusChange}
           />
+        </div>
 
-          <CompanyTable
-            companies={companies}
-            onEdit={handleEdit}
-          />
-
-          {totalPages > 1 && (
-            <div className="mt-6">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
+        <div className="px-4 py-5 sm:p-6">
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
             </div>
+          ) : (
+            <CompanyTable
+              companies={companies}
+              pagination={pagination}
+              onPageChange={handlePageChange}
+              onStatusChange={handleStatusUpdate}
+            />
           )}
         </div>
       </div>
 
-      {createModalOpen && (
+      {showCreateModal && (
         <CompanyCreateModal
-          isOpen={createModalOpen}
-          onClose={() => setCreateModalOpen(false)}
-          onSuccess={handleCreateCompany}
-        />
-      )}
-
-      {editModalOpen && selectedCompany && (
-        <CompanyEditModal
-          isOpen={editModalOpen}
-          company={selectedCompany}
-          onClose={() => {
-            setEditModalOpen(false)
-            setSelectedCompany(null)
-          }}
-          onSuccess={handleEditCompany}
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
         />
       )}
     </div>

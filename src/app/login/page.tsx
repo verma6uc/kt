@@ -8,7 +8,6 @@ import { Eye, EyeOff, AlertCircle } from "lucide-react"
 
 interface FormErrors {
   email?: string
-  password?: string
   general?: string
 }
 
@@ -18,15 +17,13 @@ export default function LoginPage() {
   const callbackUrl = searchParams?.get('callbackUrl') || '/dashboard'
   
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [errors, setErrors] = useState<FormErrors>({})
   const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
 
   // Clear errors when inputs change
   useEffect(() => {
     setErrors({})
-  }, [email, password])
+  }, [email])
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
@@ -35,10 +32,6 @@ export default function LoginPage() {
       newErrors.email = 'Email is required'
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = 'Please enter a valid email address'
-    }
-
-    if (!password) {
-      newErrors.password = 'Password is required'
     }
 
     setErrors(newErrors)
@@ -58,7 +51,6 @@ export default function LoginPage() {
     try {
       const result = await signIn("credentials", {
         email,
-        password,
         redirect: false,
         callbackUrl,
       })
@@ -66,13 +58,13 @@ export default function LoginPage() {
       if (result?.error) {
         switch (result.error) {
           case 'CredentialsSignin':
-            setErrors({ general: "Invalid email or password" })
+            setErrors({ general: "Invalid email" })
             break
           case 'AccessDenied':
             setErrors({ general: "Your account has been suspended" })
             break
           case 'AccountLocked':
-            setErrors({ general: "Your account has been locked due to too many failed attempts" })
+            setErrors({ general: "Your account has been locked" })
             break
           default:
             setErrors({ general: "An error occurred. Please try again." })
@@ -142,68 +134,6 @@ export default function LoginPage() {
               )}
             </div>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Password
-              </label>
-              <div className="relative mt-1">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`block w-full px-3 py-2 bg-white/50 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow duration-200 pr-10 ${
-                    errors.password ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter your password"
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" aria-hidden="true" />
-                  ) : (
-                    <Eye className="h-5 w-5" aria-hidden="true" />
-                  )}
-                </button>
-              </div>
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-500">{errors.password}</p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-sm transition-colors duration-200"
-                />
-                <label
-                  htmlFor="remember-me"
-                  className="ml-2 block text-sm text-gray-700"
-                >
-                  Remember me
-                </label>
-              </div>
-
-              <div className="text-sm">
-                <a
-                  href="#"
-                  className="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-200"
-                >
-                  Forgot password?
-                </a>
-              </div>
-            </div>
-
             <button
               type="submit"
               disabled={loading}
@@ -216,13 +146,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          <div className="mt-4 text-center relative">
-            <span className="text-sm text-gray-600">Don't have an account? </span>
-            <a href="#" className="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors duration-200">
-              Create new account
-            </a>
-          </div>
         </div>
       </div>
     </div>

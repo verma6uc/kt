@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@prisma/client'
+import { Prisma, type audit_action } from '@prisma/client'
 import type { MetricsResponse } from '@/types/metrics'
+
+type ActivityType = 'info' | 'error' | 'warning' | 'success'
 
 export async function GET(
   request: NextRequest,
@@ -15,12 +17,13 @@ export async function GET(
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
+
     if (session.user.role !== 'super_admin') {
       return new NextResponse('Forbidden', { status: 403 })
     }
 
     // Get company ID from params
-    const { id } = await context.params
+    const { id } = context.params
     const companyId = parseInt(id)
     if (isNaN(companyId)) {
       return new NextResponse('Invalid company ID', { status: 400 })
@@ -41,100 +44,188 @@ export async function GET(
       return new NextResponse('Company not found', { status: 404 })
     }
 
-    // Calculate date range for metrics
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    // Calculate time ranges
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
-    // Get company health metrics
-    const healthMetrics = await prisma.company_health.findFirst({
-      where: { company_id: companyId },
-      orderBy: { created_at: 'desc' },
-      select: {
-        status: true,
-        uptime_percentage: true,
-        error_rate: true,
-        avg_response_time: true,
-        active_users: true,
-        critical_issues: true,
-        created_at: true
+    // Get critical issues (HTTP 5xx errors in the last hour)
+    const criticalIssues = await prisma.api_metrics.count({
+      where: {
+        company_id: companyId,
+        created_at: { gte: oneHourAgo },
+        status_code: { gte: 500 }
       }
     })
 
-    // Get system metrics
-    const systemMetrics = await prisma.system_metrics.findMany({
+    // Calculate error rate for the last hour
+    const hourlyMetrics = await prisma.api_metrics.groupBy({
+      by: ['status_code'],
+      where: {
+        company_id: companyId,
+        created_at: { gte: oneHourAgo }
+      },
+      _count: {
+        _all: true
+      }
+    })
+
+    const totalCalls = hourlyMetrics.reduce((sum, item) => sum + item._count._all, 0)
+    const errorCalls = hourlyMetrics
+      .filter(item => item.status_code >= 400)
+      .reduce((sum, item) => sum + item._count._all, 0)
+    const errorRate = totalCalls > 0 ? (errorCalls / totalCalls) * 100 : 0
+
+    // Calculate average response time for the last hour
+    const avgResponseTime = await prisma.api_metrics.aggregate({
+      where: {
+        company_id: companyId,
+        created_at: { gte: oneHourAgo }
+      },
+      _avg: {
+        duration_ms: true
+      }
+    })
+
+    // Get unique active users in the last hour
+    const activeUsers = await prisma.api_metrics.groupBy({
+      by: ['user_id'],
+      where: {
+        company_id: companyId,
+        created_at: { gte: oneHourAgo },
+        user_id: { not: null }
+      }
+    })
+
+    // Calculate uptime based on successful requests over the last 30 days
+    const uptimeMetrics = await prisma.api_metrics.groupBy({
+      by: ['status_code'],
       where: {
         company_id: companyId,
         created_at: { gte: thirtyDaysAgo }
       },
-      orderBy: { created_at: 'asc' },
-      select: {
-        metric_type: true,
-        value: true,
-        unit: true,
-        created_at: true
+      _count: {
+        _all: true
       }
     })
 
-    // Get API metrics
-    const apiMetrics = await prisma.api_metrics.findMany({
+    const totalRequests = uptimeMetrics.reduce((sum, item) => sum + item._count._all, 0)
+    const successfulRequests = uptimeMetrics
+      .filter(item => item.status_code < 500)
+      .reduce((sum, item) => sum + item._count._all, 0)
+    const uptime = totalRequests > 0 ? (successfulRequests / totalRequests) * 100 : 100
+
+    // Get recent activity (last 20 events)
+    const recentActivity = await prisma.$transaction(async (tx) => {
+      const logs = await tx.audit_log.findMany({
+        where: {
+          company_id: companyId
+        },
+        orderBy: {
+          created_at: 'desc'
+        },
+        take: 20,
+        select: {
+          id: true,
+          action: true,
+          details: true,
+          created_at: true,
+          user: {
+            select: {
+              name: true,
+              email: true,
+              role: true
+            }
+          }
+        }
+      })
+
+      // Get metadata for each log
+      const metadata = await tx.audit_metadata.findMany({
+        where: {
+          audit_log_id: {
+            in: logs.map(log => log.id)
+          }
+        }
+      })
+
+      // Group metadata by audit_log_id
+      const metadataByLogId = metadata.reduce((acc, meta) => {
+        if (!acc[meta.audit_log_id]) {
+          acc[meta.audit_log_id] = []
+        }
+        acc[meta.audit_log_id].push(meta)
+        return acc
+      }, {} as Record<number, typeof metadata>)
+
+      return logs.map(log => ({
+        ...log,
+        metadata: metadataByLogId[log.id] || []
+      }))
+    })
+
+    // Transform audit logs into activity format
+    const formattedActivity = recentActivity.map(log => {
+      const activityType: ActivityType = 
+        log.action === 'create' ? 'success' :
+        log.action === 'update' ? 'info' :
+        log.action === 'delete' ? 'error' :
+        log.action.includes('failed') ? 'warning' : 'info'
+
+      const details: { [key: string]: string | number } = {
+        user: log.user.name || log.user.email,
+        role: log.user.role,
+      }
+
+      // Add metadata to details
+      log.metadata.forEach(meta => {
+        details[meta.key] = meta.value
+      })
+
+      return {
+        id: log.id.toString(),
+        type: activityType,
+        title: log.action.charAt(0).toUpperCase() + log.action.slice(1).replace('_', ' '),
+        description: log.details,
+        timestamp: log.created_at,
+        details
+      }
+    })
+
+    // Get daily metrics for the past 7 days
+    const dailyMetricsRaw = await prisma.api_metrics.groupBy({
+      by: ['created_at'],
       where: {
         company_id: companyId,
-        created_at: { gte: thirtyDaysAgo }
+        created_at: { gte: sevenDaysAgo }
       },
-      orderBy: { created_at: 'asc' },
-      select: {
-        endpoint: true,
-        method: true,
-        status_code: true,
-        duration_ms: true,
-        created_at: true
+      _count: {
+        _all: true,
+        status_code: true
+      },
+      _avg: {
+        duration_ms: true
+      },
+      having: {
+        created_at: {
+          _count: {
+            gt: 0
+          }
+        }
       }
     })
 
-    // Get user activity using raw SQL due to table name mapping
-    const userActivity = await prisma.$queryRaw<{ date: Date; session_count: number }[]>`
-      SELECT date, session_count
-      FROM user_activity
-      WHERE company_id = ${companyId}
-      AND date >= ${thirtyDaysAgo}
-      ORDER BY date ASC
-    `
-
-    // Get feature usage using raw SQL due to table name mapping
-    const featureUsage = await prisma.$queryRaw<{ feature_name: string; usage_count: number; created_at: Date }[]>`
-      SELECT feature_name, usage_count, created_at
-      FROM feature_usage
-      WHERE company_id = ${companyId}
-      AND created_at >= ${thirtyDaysAgo}
-      ORDER BY created_at ASC
-    `
-
-    // Get growth metrics using raw SQL due to table name mapping
-    const growthMetrics = await prisma.$queryRaw<{ active_users: number; total_storage: number; api_calls: number; created_at: Date }[]>`
-      SELECT active_users, total_storage, api_calls, created_at
-      FROM growth_metrics
-      WHERE company_id = ${companyId}
-      AND created_at >= ${thirtyDaysAgo}
-      ORDER BY created_at ASC
-    `
-
-    // Get error logs using raw SQL due to table name mapping
-    const errorLogs = await prisma.$queryRaw<{ date: Date; error_type: string; count: number }[]>`
-      SELECT date, error_type, count
-      FROM error_logs
-      WHERE company_id = ${companyId}
-      AND date >= ${thirtyDaysAgo}
-      ORDER BY date DESC
-    `
-
-    // Get resource usage using raw SQL due to table name mapping
-    const resourceUsage = await prisma.$queryRaw<{ resource_type: string; usage_value: number; unit: string; created_at: Date }[]>`
-      SELECT resource_type, usage_value, unit, created_at
-      FROM resource_usage
-      WHERE company_id = ${companyId}
-      AND created_at >= ${thirtyDaysAgo}
-      ORDER BY created_at ASC
-    `
+    // Process daily metrics
+    const dailyMetrics = dailyMetricsRaw.map(day => {
+      const errorCount = day._count.status_code || 0
+      const totalCount = day._count._all || 0
+      return {
+        date: day.created_at,
+        errorRate: totalCount > 0 ? (errorCount / totalCount) * 100 : 0,
+        responseTime: day._avg.duration_ms || 0,
+        totalRequests: totalCount
+      }
+    })
 
     // Format response
     const response: MetricsResponse = {
@@ -146,39 +237,31 @@ export async function GET(
       metrics: {
         health: {
           current: {
-            status: healthMetrics?.status || 'healthy',
-            uptime: healthMetrics?.uptime_percentage || 100,
-            errorRate: healthMetrics?.error_rate || 0,
-            responseTime: healthMetrics?.avg_response_time || 0,
-            activeUsers: healthMetrics?.active_users || 0,
-            criticalIssues: healthMetrics?.critical_issues || 0,
-            lastUpdated: healthMetrics?.created_at || new Date()
+            status: criticalIssues > 0 ? 'critical' : errorRate > 5 ? 'warning' : 'healthy',
+            uptime,
+            errorRate,
+            responseTime: avgResponseTime._avg.duration_ms || 0,
+            activeUsers: activeUsers.length,
+            criticalIssues,
+            lastUpdated: new Date()
           },
-          errorLogs,
-          resourceUsage
+          recentActivity: formattedActivity,
+          dailyMetrics
         },
-        usage: {
-          patterns: {
-            dailyActiveUsers: userActivity.map(day => ({
-              date: day.date,
-              count: day.session_count
-            })),
-            featureUsage: featureUsage.map(feature => ({
-              name: feature.feature_name,
-              count: feature.usage_count,
-              date: feature.created_at
-            }))
+        api: {
+          overview: {
+            totalCalls,
+            successfulCalls: totalCalls - errorCalls,
+            errorCalls,
+            successRate: totalCalls ? ((totalCalls - errorCalls) / totalCalls) * 100 : 100,
+            errorRate
           },
-          systemMetrics,
-          apiMetrics
-        },
-        growth: {
-          trends: growthMetrics.map(metric => ({
-            date: metric.created_at,
-            activeUsers: metric.active_users,
-            storage: metric.total_storage,
-            apiCalls: metric.api_calls
-          }))
+          endpoints: [],
+          statusCodes: hourlyMetrics.map(item => ({
+            code: item.status_code,
+            count: item._count._all
+          })),
+          timeline: []
         }
       }
     }

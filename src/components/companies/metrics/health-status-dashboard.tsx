@@ -1,8 +1,9 @@
 "use client"
 
 import { useMemo } from 'react'
-import { AlertTriangle, CheckCircle, Clock } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Clock, Activity, Users, Timer, ArrowUp } from 'lucide-react'
 import { health_status } from '@prisma/client'
+import { LineChart } from '@/components/dashboard/line-chart'
 
 interface HealthMetrics {
   current: {
@@ -14,16 +15,21 @@ interface HealthMetrics {
     criticalIssues: number
     lastUpdated: Date | string
   }
-  errorLogs: Array<{
-    date: Date | string
-    error_type: string
-    count: number
+  recentActivity: Array<{
+    id: string
+    type: 'error' | 'warning' | 'info' | 'success'
+    title: string
+    description: string
+    timestamp: Date | string
+    details?: {
+      [key: string]: string | number
+    }
   }>
-  resourceUsage: Array<{
-    resource_type: string
-    usage_value: number
-    unit: string
-    created_at: Date | string
+  dailyMetrics: Array<{
+    date: Date | string
+    errorRate: number
+    responseTime: number
+    totalRequests: number
   }>
 }
 
@@ -33,156 +39,164 @@ interface Props {
 
 export function HealthStatusDashboard({ metrics }: Props) {
   const healthStatus = useMemo(() => {
+    // Critical if error rate > 5% or critical issues exist
     if (metrics.current.criticalIssues > 0 || metrics.current.errorRate > 5) {
       return 'critical'
     }
+    // Warning if error rate > 1% or response time > 1000ms
     if (metrics.current.errorRate > 1 || metrics.current.responseTime > 1000) {
       return 'warning'
     }
     return 'healthy'
   }, [metrics])
 
-  const statusColor = {
-    healthy: 'bg-green-50 text-green-700 ring-green-600/20',
-    warning: 'bg-yellow-50 text-yellow-700 ring-yellow-600/20',
-    critical: 'bg-red-50 text-red-700 ring-red-600/20'
+  const statusConfig = {
+    healthy: {
+      color: 'bg-green-50',
+      textColor: 'text-green-700',
+      borderColor: 'border-green-400',
+      icon: <CheckCircle className="h-8 w-8 text-green-500" />,
+      title: 'System Healthy'
+    },
+    warning: {
+      color: 'bg-yellow-50',
+      textColor: 'text-yellow-700',
+      borderColor: 'border-yellow-400',
+      icon: <Clock className="h-8 w-8 text-yellow-500" />,
+      title: 'System Warning'
+    },
+    critical: {
+      color: 'bg-red-50',
+      textColor: 'text-red-700',
+      borderColor: 'border-red-400',
+      icon: <AlertTriangle className="h-8 w-8 text-red-500" />,
+      title: 'System Critical'
+    }
   }
 
-  const statusIcon = {
-    healthy: <CheckCircle className="h-5 w-5 text-green-500" />,
-    warning: <Clock className="h-5 w-5 text-yellow-500" />,
-    critical: <AlertTriangle className="h-5 w-5 text-red-500" />
+  const currentStatus = statusConfig[healthStatus]
+
+  const kpiCards = [
+    {
+      title: 'Error Rate',
+      value: `${metrics.current.errorRate.toFixed(2)}%`,
+      icon: <AlertTriangle className="h-6 w-6 text-red-500" />,
+      description: 'Last hour',
+      trend: metrics.current.errorRate > 1 ? 'up' : 'down'
+    },
+    {
+      title: 'Response Time',
+      value: `${metrics.current.responseTime.toFixed(2)}ms`,
+      icon: <Timer className="h-6 w-6 text-blue-500" />,
+      description: 'Average',
+      trend: metrics.current.responseTime > 500 ? 'up' : 'down'
+    },
+    {
+      title: 'Uptime',
+      value: `${metrics.current.uptime.toFixed(2)}%`,
+      icon: <ArrowUp className="h-6 w-6 text-green-500" />,
+      description: 'Last 30 days',
+      trend: 'up'
+    },
+    {
+      title: 'Active Users',
+      value: metrics.current.activeUsers.toString(),
+      icon: <Users className="h-6 w-6 text-purple-500" />,
+      description: 'Current',
+      trend: 'up'
+    }
+  ]
+
+  const formatTime = (date: Date | string) => {
+    const d = new Date(date)
+    const hours = d.getHours().toString().padStart(2, '0')
+    const minutes = d.getMinutes().toString().padStart(2, '0')
+    const seconds = d.getSeconds().toString().padStart(2, '0')
+    return `${hours}:${minutes}:${seconds}`
   }
 
-  const formatDate = (date: Date | string) => {
-    const d = typeof date === 'string' ? new Date(date) : date
-    return d.toLocaleDateString()
+  // Prepare data for line charts
+  const errorRateChartData = {
+    labels: metrics.dailyMetrics.map(m => new Date(m.date).toLocaleDateString()),
+    datasets: [
+      {
+        label: 'Error Rate',
+        data: metrics.dailyMetrics.map(m => m.errorRate),
+        fill: false,
+        borderColor: 'rgb(239, 68, 68)',
+        backgroundColor: 'rgba(239, 68, 68, 0.5)',
+        tension: 0.1
+      }
+    ]
+  }
+
+  const responseTimeChartData = {
+    labels: metrics.dailyMetrics.map(m => new Date(m.date).toLocaleDateString()),
+    datasets: [
+      {
+        label: 'Response Time',
+        data: metrics.dailyMetrics.map(m => m.responseTime),
+        fill: false,
+        borderColor: 'rgb(59, 130, 246)',
+        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+        tension: 0.1
+      }
+    ]
   }
 
   return (
-    <div className="mt-6 space-y-8">
-      {/* Overall Health Status */}
-      <div className={`rounded-md px-4 py-3 ${statusColor[healthStatus]}`}>
-        <div className="flex">
+    <div className="space-y-8">
+      {/* System Status Banner */}
+      <div className={`p-6 ${currentStatus.color} border-l-4 ${currentStatus.borderColor} rounded-lg`}>
+        <div className="flex items-center">
           <div className="flex-shrink-0">
-            {statusIcon[healthStatus]}
+            {currentStatus.icon}
           </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium">
-              System Status: {healthStatus.charAt(0).toUpperCase() + healthStatus.slice(1)}
+          <div className="ml-4">
+            <h3 className={`text-lg font-semibold ${currentStatus.textColor}`}>
+              {currentStatus.title}
             </h3>
-            <div className="mt-2 text-sm">
+            <div className="mt-1">
               {metrics.current.criticalIssues > 0 && (
-                <p>Critical Issues: {metrics.current.criticalIssues}</p>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-red-100 text-red-800 mr-2">
+                  {metrics.current.criticalIssues} Critical Issues
+                </span>
               )}
-              <p>Error Rate: {metrics.current.errorRate.toFixed(2)}%</p>
-              <p>Response Time: {metrics.current.responseTime.toFixed(2)}ms</p>
+              <span className={`text-sm ${currentStatus.textColor}`}>
+                Last updated: {formatTime(metrics.current.lastUpdated)}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Key Metrics Grid */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <dt className="text-sm font-medium text-gray-500 truncate">Uptime</dt>
-            <dd className="mt-1 text-3xl font-semibold text-gray-900">
-              {metrics.current.uptime.toFixed(2)}%
-            </dd>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <dt className="text-sm font-medium text-gray-500 truncate">Active Users</dt>
-            <dd className="mt-1 text-3xl font-semibold text-gray-900">
-              {metrics.current.activeUsers}
-            </dd>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <dt className="text-sm font-medium text-gray-500 truncate">Response Time</dt>
-            <dd className="mt-1 text-3xl font-semibold text-gray-900">
-              {metrics.current.responseTime.toFixed(2)}ms
-            </dd>
-          </div>
-        </div>
-      </div>
-
-      {/* Resource Usage */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h4 className="text-base font-medium text-gray-900">Resource Usage</h4>
-          <div className="mt-4 space-y-4">
-            {metrics.resourceUsage.map((resource, index) => (
-              <div key={index} className="relative">
-                <div className="flex justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-700">
-                    {resource.resource_type}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    {resource.usage_value} {resource.unit}
-                  </span>
+      {/* KPI Grid */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {kpiCards.map((card, index) => (
+          <div key={index} className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  {card.icon}
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full"
-                    style={{ width: `${Math.min(resource.usage_value, 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Errors */}
-      {metrics.errorLogs.length > 0 && (
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h4 className="text-base font-medium text-gray-900">Recent Errors</h4>
-            <div className="mt-4 flow-root">
-              <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-                  <table className="min-w-full divide-y divide-gray-300">
-                    <thead>
-                      <tr>
-                        <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                          Error Type
-                        </th>
-                        <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                          Count
-                        </th>
-                        <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                          Date
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {metrics.errorLogs.map((error, index) => (
-                        <tr key={index}>
-                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">
-                            {error.error_type}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {error.count}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {formatDate(error.date)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">{card.title}</p>
+                  <div className="flex items-baseline">
+                    <p className="text-2xl font-semibold text-gray-900">{card.value}</p>
+                    <p className="ml-2 text-sm text-gray-500">{card.description}</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        ))}
+      </div>
+
+      {/* Trend Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <LineChart title="Error Rate Trend" data={errorRateChartData} />
+        <LineChart title="Response Time Trend" data={responseTimeChartData} />
+      </div>
     </div>
   )
 }

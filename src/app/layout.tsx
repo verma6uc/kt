@@ -1,6 +1,14 @@
-import { SessionProvider } from '@/components/session-provider'
-import { ToastProvider } from '@/components/providers/toast-provider'
+import { Inter } from 'next/font/google'
+import { Toaster } from 'react-hot-toast'
 import './globals.css'
+import { SessionProvider } from '@/components/session-provider'
+
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata = {
+  title: 'Yuvi - Company Management Platform',
+  description: 'Manage your companies and monitor their performance',
+}
 
 export default function RootLayout({
   children,
@@ -9,11 +17,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <body className={inter.className}>
         <SessionProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
+          {children}
+          <Toaster position="top-right" />
         </SessionProvider>
       </body>
     </html>

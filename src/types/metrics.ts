@@ -69,15 +69,6 @@ export interface ErrorLogs {
   created_at: Date
 }
 
-export interface ResourceUsage {
-  id: number
-  company_id: number
-  resource_type: string
-  usage_value: number
-  unit: string
-  created_at: Date
-}
-
 export interface MetricsResponse {
   company: {
     id: number
@@ -95,19 +86,51 @@ export interface MetricsResponse {
         criticalIssues: number
         lastUpdated: Date
       }
-      errorLogs: Array<{
-        date: Date
-        error_type: string
-        count: number
+      recentActivity: Array<{
+        id: string
+        type: 'error' | 'warning' | 'info' | 'success'
+        title: string
+        description: string
+        timestamp: Date
+        details?: {
+          [key: string]: string | number
+        }
       }>
-      resourceUsage: Array<{
-        resource_type: string
-        usage_value: number
-        unit: string
-        created_at: Date
+      dailyMetrics: Array<{
+        date: Date
+        errorRate: number
+        responseTime: number
+        totalRequests: number
       }>
     }
-    usage: {
+    api: {
+      overview: {
+        totalCalls: number
+        successfulCalls: number
+        errorCalls: number
+        successRate: number
+        errorRate: number
+      }
+      endpoints: Array<{
+        endpoint: string
+        method: api_method
+        totalCalls: number
+        avgResponseTime: number
+        avgResponseSize: number
+        maxResponseTime: number
+        minResponseTime: number
+      }>
+      statusCodes: Array<{
+        code: number
+        count: number
+      }>
+      timeline: Array<{
+        timestamp: Date
+        responseTime: number
+        statusCode: number
+      }>
+    }
+    usage?: {
       patterns: {
         dailyActiveUsers: Array<{
           date: Date
@@ -133,7 +156,7 @@ export interface MetricsResponse {
         created_at: Date
       }>
     }
-    growth: {
+    growth?: {
       trends: Array<{
         date: Date
         activeUsers: number

@@ -65,7 +65,7 @@ export function DashboardStats() {
         
         // Calculate basic stats
         const activeCompanies = companies.filter((c: Company) => c.status === 'active').length
-        const totalUsers = companies.reduce((sum: number, company: Company) => sum + company._count.users, 0)
+        const totalUsers = companies.reduce((sum: number, company: Company) => sum + company._count.user, 0)
         const totalApiCalls = companies.reduce((sum: number, company: Company) => sum + company._count.api_metrics, 0)
         const avgApiCalls = Math.round(totalApiCalls / companies.length)
         
@@ -174,8 +174,8 @@ export function DashboardStats() {
         label: 'API Calls',
         data: stats.apiCallsOverTime.data,
         fill: true,
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderColor: 'rgb(99, 102, 241)', // Indigo-500
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
         tension: 0.4,
       },
     ],
@@ -188,11 +188,18 @@ export function DashboardStats() {
         label: 'Companies by Status',
         data: stats.statusDistribution.data,
         backgroundColor: [
-          'rgba(34, 197, 94, 0.8)',  // active - green
-          'rgba(234, 179, 8, 0.8)',   // pending_setup - yellow
-          'rgba(239, 68, 68, 0.8)',   // suspended - red
-          'rgba(156, 163, 175, 0.8)', // inactive - gray
+          'rgba(79, 70, 229, 0.9)',   // active - indigo-600
+          'rgba(245, 158, 11, 0.9)',  // pending_setup - amber-500
+          'rgba(239, 68, 68, 0.9)',   // suspended - red-500
+          'rgba(107, 114, 128, 0.9)', // inactive - gray-500
         ],
+        borderColor: [
+          'rgba(79, 70, 229, 1)',    // active - indigo-600
+          'rgba(245, 158, 11, 1)',   // pending_setup - amber-500
+          'rgba(239, 68, 68, 1)',    // suspended - red-500
+          'rgba(107, 114, 128, 1)',  // inactive - gray-500
+        ],
+        borderWidth: 1,
       },
     ],
   }
@@ -205,7 +212,7 @@ export function DashboardStats() {
           value={stats.totalCompanies}
           subtitle={`${stats.activeCompanies} active`}
           icon={Building2}
-          subtitleColor="text-green-600"
+          subtitleColor="text-indigo-600"
         />
         <StatsCard
           title="Total Users"
@@ -224,7 +231,7 @@ export function DashboardStats() {
           value={`${stats.uptime.toFixed(2)}%`}
           subtitle="uptime"
           icon={Server}
-          subtitleColor="text-green-600"
+          subtitleColor="text-indigo-600"
         />
       </div>
 
@@ -239,14 +246,14 @@ export function DashboardStats() {
           value={stats.totalCompanies - stats.healthyCompanies}
           subtitle="companies need attention"
           icon={Bell}
-          subtitleColor="text-green-600"
+          subtitleColor="text-indigo-600"
         />
         <StatsCard
           title="Security Status"
           value={stats.healthyCompanies}
           subtitle="companies secure"
           icon={Shield}
-          subtitleColor="text-green-600"
+          subtitleColor="text-indigo-600"
         />
         <StatsCard
           title="API Success Rate"
@@ -260,7 +267,7 @@ export function DashboardStats() {
           value={`${stats.averageResponseTime}ms`}
           subtitle="avg"
           icon={Clock}
-          subtitleColor="text-green-600"
+          subtitleColor="text-indigo-600"
         />
       </div>
     </div>

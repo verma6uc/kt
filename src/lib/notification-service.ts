@@ -1,13 +1,17 @@
 import { prisma } from './prisma'
 import { notification_priority } from '@prisma/client'
 import { NotificationStatus, NotificationWithUser } from '@/types/notification'
+import crypto from 'crypto'
 
 export class NotificationService {
-  static async getNotifications(userId: string, companyId: string, status?: NotificationStatus) {
+  static async getNotifications(userId: string | number, companyId: string | number, status?: NotificationStatus) {
+    const userIdInt = typeof userId === 'string' ? parseInt(userId) : userId
+    const companyIdInt = typeof companyId === 'string' ? parseInt(companyId) : companyId
+
     return prisma.notification.findMany({
       where: {
-        user_id: parseInt(userId),
-        company_id: parseInt(companyId),
+        user_id: userIdInt,
+        company_id: companyIdInt,
         status: status || 'unread'
       },
       orderBy: {
@@ -26,16 +30,20 @@ export class NotificationService {
   }
 
   static async updateNotificationStatus(
-    id: string,
-    userId: string,
-    companyId: string,
+    id: string | number,
+    userId: string | number,
+    companyId: string | number,
     status: NotificationStatus
   ) {
+    const idInt = typeof id === 'string' ? parseInt(id) : id
+    const userIdInt = typeof userId === 'string' ? parseInt(userId) : userId
+    const companyIdInt = typeof companyId === 'string' ? parseInt(companyId) : companyId
+
     return prisma.notification.update({
       where: {
-        id: parseInt(id),
-        user_id: parseInt(userId),
-        company_id: parseInt(companyId)
+        id: idInt,
+        user_id: userIdInt,
+        company_id: companyIdInt
       },
       data: {
         status,
@@ -74,17 +82,21 @@ export class NotificationService {
     priority,
     link
   }: {
-    userId: string
-    companyId: string
+    userId: string | number
+    companyId: string | number
     title: string
     message: string
     priority: notification_priority
     link?: string
   }) {
+    const userIdInt = typeof userId === 'string' ? parseInt(userId) : userId
+    const companyIdInt = typeof companyId === 'string' ? parseInt(companyId) : companyId
+
     return prisma.notification.create({
       data: {
-        user_id: parseInt(userId),
-        company_id: parseInt(companyId),
+        uuid: crypto.randomUUID(),
+        user_id: userIdInt,
+        company_id: companyIdInt,
         title,
         message,
         priority,
@@ -110,7 +122,7 @@ export class NotificationService {
     priority,
     link
   }: {
-    companyId: string
+    companyId: string | number
     title: string
     message: string
     priority: notification_priority
@@ -131,7 +143,7 @@ export class NotificationService {
     const notifications = await Promise.all(
       superAdmins.map(admin =>
         this.createNotification({
-          userId: admin.id.toString(),
+          userId: admin.id,
           companyId,
           title,
           message,
@@ -144,11 +156,14 @@ export class NotificationService {
     return notifications
   }
 
-  static async markAllAsRead(userId: string, companyId: string) {
+  static async markAllAsRead(userId: string | number, companyId: string | number) {
+    const userIdInt = typeof userId === 'string' ? parseInt(userId) : userId
+    const companyIdInt = typeof companyId === 'string' ? parseInt(companyId) : companyId
+
     return prisma.notification.updateMany({
       where: {
-        user_id: parseInt(userId),
-        company_id: parseInt(companyId),
+        user_id: userIdInt,
+        company_id: companyIdInt,
         status: 'unread'
       },
       data: {
@@ -158,11 +173,12 @@ export class NotificationService {
     })
   }
 
-  static async getUnreadCount(userId: string, companyId: string) {
+  static async getUnreadCount(userId: string | number) {
+    const userIdInt = typeof userId === 'string' ? parseInt(userId) : userId
+
     return prisma.notification.count({
       where: {
-        user_id: parseInt(userId),
-        company_id: parseInt(companyId),
+        user_id: userIdInt,
         status: 'unread'
       }
     })

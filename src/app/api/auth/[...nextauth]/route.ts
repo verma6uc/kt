@@ -3,6 +3,8 @@ import { authOptions } from "@/lib/auth"
 import { AuthService } from "@/lib/auth-service"
 import { NotificationService } from "@/lib/notification-service"
 import { headers } from "next/headers"
+import type { Session } from "next-auth"
+import type { JWT } from "next-auth/jwt"
 
 async function getRequestHeaders() {
   try {
@@ -22,7 +24,16 @@ async function getRequestHeaders() {
 const handler = NextAuth({
   ...authOptions,
   callbacks: {
-    ...authOptions.callbacks,
+    async jwt(params) {
+      // Call the original jwt callback
+      const token = await authOptions.callbacks?.jwt?.(params) ?? params.token;
+      return token;
+    },
+    async session(params) {
+      // Call the original session callback
+      const session = await authOptions.callbacks?.session?.(params) ?? params.session;
+      return session;
+    },
     async signIn({ user }) {
       // Check if user can login
       const { canLogin, reason } = await AuthService.canUserLogin(user.id)

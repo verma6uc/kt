@@ -6,10 +6,17 @@ import Link from 'next/link'
 
 interface CompanyTableRowProps {
   company: Company
-  onEdit: (company: Company) => void
+  onStatusChange: () => void
 }
 
-export function CompanyTableRow({ company, onEdit }: CompanyTableRowProps) {
+const formatText = (text: string) => {
+  return text
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
+export function CompanyTableRow({ company, onStatusChange }: CompanyTableRowProps) {
   return (
     <tr key={company.id}>
       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
@@ -18,19 +25,19 @@ export function CompanyTableRow({ company, onEdit }: CompanyTableRowProps) {
             <img
               src={company.logo_url}
               alt={company.name}
-              className="h-10 w-10 rounded-full"
+              className="h-10 w-10 rounded-full object-cover"
             />
           ) : (
-            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-              <span className="text-gray-500 font-medium">
-                {company.name.charAt(0)}
+            <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+              <span className="text-sm font-medium text-gray-600">
+                {company.name.charAt(0).toUpperCase()}
               </span>
             </div>
           )}
           <div className="ml-4">
             <Link 
               href={`/dashboard/companies/${company.id}`}
-              className="font-medium text-gray-900 hover:text-blue-600"
+              className="font-medium text-gray-900 hover:text-indigo-600"
             >
               {company.name}
             </Link>
@@ -39,16 +46,16 @@ export function CompanyTableRow({ company, onEdit }: CompanyTableRowProps) {
         </div>
       </td>
       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-        {company.industry || 'N/A'}
+        {company.industry ? formatText(company.industry) : 'N/A'}
       </td>
       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-        {company.type}
+        {formatText(company.type)}
       </td>
       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-        {company.employee_count || 'N/A'}
+        {company._count?.user || 0} users
       </td>
-      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-        <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+      <td className="whitespace-nowrap px-3 py-4 text-sm">
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
           company.status === 'active'
             ? 'bg-green-100 text-green-800'
             : company.status === 'pending_setup'
@@ -57,11 +64,15 @@ export function CompanyTableRow({ company, onEdit }: CompanyTableRowProps) {
             ? 'bg-red-100 text-red-800'
             : 'bg-gray-100 text-gray-800'
         }`}>
-          {company.status.replace('_', ' ')}
+          {formatText(company.status)}
         </span>
       </td>
       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-        <CompanyTableActions company={company} onEdit={onEdit} />
+        <CompanyTableActions 
+          company={company} 
+          onEdit={() => {}} // We'll handle edit in a separate PR
+          onStatusChange={onStatusChange}
+        />
       </td>
     </tr>
   )
