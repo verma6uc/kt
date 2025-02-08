@@ -2,10 +2,10 @@
 
 import { Fragment, useEffect, useState } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
-import { X as XMarkIcon } from 'lucide-react'
+import { Building2, X } from 'lucide-react'
 import { Company } from '@/types/company'
-import { toast } from 'react-hot-toast'
 import { CompanySuperadminForm } from './forms/company-superadmin-form'
+import { useToast } from '@/components/providers/toast-provider'
 
 interface CompanyEditModalProps {
   isOpen: boolean
@@ -17,6 +17,7 @@ interface CompanyEditModalProps {
 export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: CompanyEditModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
+  const { showToast } = useToast()
 
   // Prevent scrolling when modal is open
   useEffect(() => {
@@ -41,10 +42,8 @@ export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: Compan
   const handleSubmit = async (formData: { name: string; identifier: string; logo_url: string | null }) => {
     if (isSubmitting) return
 
-    setIsSubmitting(true)
-    const toastId = toast.loading('Updating company...')
-    
     try {
+      setIsSubmitting(true)
       const response = await fetch(`/api/companies/${company.id}`, {
         method: 'PATCH',
         headers: {
@@ -63,13 +62,20 @@ export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: Compan
         throw new Error(error.message || 'Failed to update company')
       }
 
-      toast.success('Company updated successfully', { id: toastId })
+      showToast({
+        type: 'success',
+        title: 'Success',
+        message: 'Company updated successfully'
+      })
       setIsDirty(false)
       onSuccess()
     } catch (error) {
       console.error('Error updating company:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to update company', { id: toastId })
-      throw error
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to update company'
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -97,7 +103,7 @@ export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: Compan
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+          <div className="fixed inset-0 bg-gray-500/75 transition-opacity" />
         </Transition.Child>
 
         <div className="fixed inset-0 z-10 overflow-y-auto">
@@ -112,36 +118,41 @@ export function CompanyEditModal({ isOpen, company, onClose, onSuccess }: Compan
               leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
             >
               <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
+                <div className="absolute right-0 top-0 pr-4 pt-4 block">
                   <button
                     type="button"
                     className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     onClick={handleClose}
                   >
                     <span className="sr-only">Close</span>
-                    <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+                    <X className="h-6 w-6" aria-hidden="true" />
                   </button>
                 </div>
 
-                <div>
-                  <Dialog.Title
-                    as="h3"
-                    className="text-lg font-medium leading-6 text-gray-900"
-                  >
-                    Edit Company
-                  </Dialog.Title>
-                  <p className="mt-2 text-sm text-gray-500">
-                    As a super admin, you can edit the company's name, identifier, and logo.
-                  </p>
-
-                  <div className="mt-6">
-                    <CompanySuperadminForm
-                      company={company}
-                      onSubmit={handleSubmit}
-                      onDirtyStateChange={setIsDirty}
-                      disabled={isSubmitting}
-                    />
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <Building2 className="h-6 w-6 text-blue-600" aria-hidden="true" />
                   </div>
+                  <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+                    <Dialog.Title
+                      as="h3"
+                      className="text-lg font-semibold leading-6 text-gray-900"
+                    >
+                      Edit Company
+                    </Dialog.Title>
+                    <p className="mt-2 text-sm text-gray-500">
+                      Update the company's information below.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <CompanySuperadminForm
+                    company={company}
+                    onSubmit={handleSubmit}
+                    onDirtyStateChange={setIsDirty}
+                    disabled={isSubmitting}
+                  />
                 </div>
               </Dialog.Panel>
             </Transition.Child>

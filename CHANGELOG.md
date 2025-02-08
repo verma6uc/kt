@@ -11,6 +11,11 @@ All notable changes to this project will be documented in this file.
   - Matched table container styling with notifications page
   - Aligned table header styles for consistent look and feel
   - Added proper shadow and border styling to match notifications table
+- Standardized company modals styling:
+  - Added blue icon header to edit modal
+  - Updated form input styles with consistent icons and colors
+  - Matched button styles and layout between create and edit modals
+  - Unified font weights and spacing
 
 ### Improved
 - Enhanced company creation modal:
