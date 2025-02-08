@@ -162,9 +162,14 @@ export async function GET(request: Request) {
     }
 
     // Build order by clause
-    const orderBy: Prisma.companyOrderByWithRelationInput = sortField === 'user' 
-      ? { user: { _count: sortDirection } }
-      : { [sortField]: sortDirection }
+    let orderBy: Prisma.companyOrderByWithRelationInput = { [sortField]: sortDirection }
+    if (sortField === '_count.user') {
+      orderBy = {
+        user: {
+          _count: sortDirection
+        }
+      }
+    }
 
     // Get total count for pagination
     const totalCount = await prisma.company.count({
@@ -208,7 +213,7 @@ export async function GET(request: Request) {
           company.type,
           company.status,
           company.industry || '',
-          (company as any)._count.user
+          company._count.user
         ].join(','))
       ]
 

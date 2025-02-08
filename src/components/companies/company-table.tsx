@@ -12,13 +12,15 @@ interface PaginationInfo {
   totalPages: number
 }
 
+type SortableField = keyof Company | '_count.user'
+
 interface CompanyTableProps {
   companies: Company[]
   pagination: PaginationInfo
   onPageChange: (page: number) => void
   onStatusChange: () => void
-  onSort?: (field: keyof Company, direction: 'asc' | 'desc') => void
-  sortField?: keyof Company
+  onSort?: (field: SortableField, direction: 'asc' | 'desc') => void
+  sortField?: SortableField
   sortDirection?: 'asc' | 'desc'
 }
 
@@ -31,10 +33,10 @@ export function CompanyTable({
   sortField = 'name',
   sortDirection = 'asc'
 }: CompanyTableProps) {
-  const [currentSortField, setCurrentSortField] = useState<keyof Company>(sortField)
+  const [currentSortField, setCurrentSortField] = useState<SortableField>(sortField)
   const [currentSortDirection, setCurrentSortDirection] = useState<'asc' | 'desc'>(sortDirection)
 
-  const handleSort = (field: keyof Company) => {
+  const handleSort = (field: SortableField) => {
     const newDirection = field === currentSortField && currentSortDirection === 'asc' ? 'desc' : 'asc'
     setCurrentSortField(field)
     setCurrentSortDirection(newDirection)

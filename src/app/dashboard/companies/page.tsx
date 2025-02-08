@@ -16,6 +16,8 @@ interface PaginationInfo {
   totalPages: number
 }
 
+type SortableField = keyof Company | '_count.user'
+
 export default function CompaniesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -36,7 +38,7 @@ export default function CompaniesPage() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || "")
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
-  const [sortField, setSortField] = useState<keyof Company>('name')
+  const [sortField, setSortField] = useState<SortableField>('name')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
   // Fetch companies with filters, sorting, and pagination
@@ -48,7 +50,13 @@ export default function CompaniesPage() {
       // Add basic params
       params.set('page', pagination.currentPage.toString())
       params.set('pageSize', pagination.pageSize.toString())
-      params.set('sortField', sortField)
+      
+      // Handle special case for user count sorting
+      if (sortField === '_count.user') {
+        params.set('sortField', '_count.user')
+      } else {
+        params.set('sortField', sortField)
+      }
       params.set('sortDirection', sortDirection)
       
       // Add search if present
@@ -104,7 +112,7 @@ export default function CompaniesPage() {
   }
 
   // Handle sorting
-  const handleSort = (field: keyof Company, direction: 'asc' | 'desc') => {
+  const handleSort = (field: SortableField, direction: 'asc' | 'desc') => {
     setSortField(field)
     setSortDirection(direction)
     setPagination(prev => ({ ...prev, currentPage: 1 }))
