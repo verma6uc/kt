@@ -32,12 +32,14 @@ export default function CompaniesPage() {
     totalPages: 0
   })
 
-  // Search and filter state
+  // Search, filter, and sort state
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || "")
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
+  const [sortField, setSortField] = useState<keyof Company>('name')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
-  // Fetch companies with filters and pagination
+  // Fetch companies with filters, sorting, and pagination
   const fetchCompanies = async () => {
     try {
       setLoading(true)
@@ -46,6 +48,8 @@ export default function CompaniesPage() {
       // Add basic params
       params.set('page', pagination.currentPage.toString())
       params.set('pageSize', pagination.pageSize.toString())
+      params.set('sortField', sortField)
+      params.set('sortDirection', sortDirection)
       
       // Add search if present
       if (searchQuery) {
@@ -74,10 +78,10 @@ export default function CompaniesPage() {
     }
   }
 
-  // Initial fetch and refetch on filter/page changes
+  // Initial fetch and refetch on filter/page/sort changes
   useEffect(() => {
     fetchCompanies()
-  }, [pagination.currentPage, searchQuery, selectedTypes, selectedStatuses])
+  }, [pagination.currentPage, searchQuery, selectedTypes, selectedStatuses, sortField, sortDirection])
 
   // Handle search and filter changes
   const handleSearchChange = (query: string) => {
@@ -97,6 +101,13 @@ export default function CompaniesPage() {
 
   const handlePageChange = (page: number) => {
     setPagination(prev => ({ ...prev, currentPage: page }))
+  }
+
+  // Handle sorting
+  const handleSort = (field: keyof Company, direction: 'asc' | 'desc') => {
+    setSortField(field)
+    setSortDirection(direction)
+    setPagination(prev => ({ ...prev, currentPage: 1 }))
   }
 
   // Handle company creation success
@@ -157,6 +168,9 @@ export default function CompaniesPage() {
               pagination={pagination}
               onPageChange={handlePageChange}
               onStatusChange={handleStatusUpdate}
+              onSort={handleSort}
+              sortField={sortField}
+              sortDirection={sortDirection}
             />
           )}
         </div>

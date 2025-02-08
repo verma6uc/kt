@@ -1,7 +1,9 @@
 "use client"
 
+import { useState } from 'react'
 import { Company } from '@/types/company'
 import { CompanyTableRow } from './company-table-row'
+import { CompanyTableHeader } from './company-table-header'
 
 interface PaginationInfo {
   currentPage: number
@@ -15,9 +17,30 @@ interface CompanyTableProps {
   pagination: PaginationInfo
   onPageChange: (page: number) => void
   onStatusChange: () => void
+  onSort?: (field: keyof Company, direction: 'asc' | 'desc') => void
+  sortField?: keyof Company
+  sortDirection?: 'asc' | 'desc'
 }
 
-export function CompanyTable({ companies, pagination, onPageChange, onStatusChange }: CompanyTableProps) {
+export function CompanyTable({ 
+  companies, 
+  pagination, 
+  onPageChange, 
+  onStatusChange,
+  onSort,
+  sortField = 'name',
+  sortDirection = 'asc'
+}: CompanyTableProps) {
+  const [currentSortField, setCurrentSortField] = useState<keyof Company>(sortField)
+  const [currentSortDirection, setCurrentSortDirection] = useState<'asc' | 'desc'>(sortDirection)
+
+  const handleSort = (field: keyof Company) => {
+    const newDirection = field === currentSortField && currentSortDirection === 'asc' ? 'desc' : 'asc'
+    setCurrentSortField(field)
+    setCurrentSortDirection(newDirection)
+    onSort?.(field, newDirection)
+  }
+
   if (!companies.length) {
     return (
       <div className="text-center py-12">
@@ -30,28 +53,11 @@ export function CompanyTable({ companies, pagination, onPageChange, onStatusChan
     <div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead>
-            <tr>
-              <th scope="col" className="py-4 pl-4 pr-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Company
-              </th>
-              <th scope="col" className="px-3 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Industry
-              </th>
-              <th scope="col" className="px-3 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Type
-              </th>
-              <th scope="col" className="px-3 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Users
-              </th>
-              <th scope="col" className="px-3 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Status
-              </th>
-              <th scope="col" className="relative py-4 pl-3 pr-4">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
+          <CompanyTableHeader
+            sortField={currentSortField}
+            sortDirection={currentSortDirection}
+            onSort={handleSort}
+          />
           <tbody className="divide-y divide-gray-200 bg-white">
             {companies.map((company) => (
               <CompanyTableRow

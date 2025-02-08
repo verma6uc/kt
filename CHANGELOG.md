@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - 2025-02-08
 
+### Added
+- Sorting functionality to companies table:
+  - Sort by company name, type, status, industry, and user count
+  - Visual indicators for sort direction
+  - Server-side sorting implementation
+  - Persistent sort state
+
 ### Changed
 - Simplified company creation process:
   - Reduced required fields to only company name and optional logo
