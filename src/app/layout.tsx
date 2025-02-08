@@ -2,6 +2,7 @@ import { Inter } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import './globals.css'
 import { SessionProvider } from '@/components/session-provider'
+import { ApiProvider } from '@/components/providers/api-provider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -19,8 +20,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <SessionProvider>
-          {children}
-          <Toaster position="top-right" />
+          <ApiProvider>
+            {children}
+            <Toaster position="top-right" />
+          </ApiProvider>
         </SessionProvider>
       </body>
     </html>
