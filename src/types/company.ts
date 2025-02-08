@@ -1,41 +1,38 @@
+import { company_type, company_status } from '@prisma/client'
+import { CompanyHealth } from './metrics'
+
 export interface Company {
   id: number
+  uuid: string
   name: string
   identifier: string
-  type: 'small_business' | 'enterprise' | 'startup'
-  status: 'pending_setup' | 'active' | 'suspended' | 'inactive' | 'archived'
-  logo_url?: string | null
-  description?: string | null
-  website?: string | null
-  tax_id?: string | null
-  registration_number?: string | null
-  employee_count?: number | null
+  description: string | null
+  logo_url: string | null
+  website: string | null
+  type: company_type
   industry: string | null
+  status: company_status
+  tax_id: string | null
+  registration_number: string | null
+  employee_count: number | null
   created_at: Date
-  _count: {
-    users: number
-    api_metrics: number
-    system_metrics: number
+  updated_at: Date
+  _count?: {
+    user: number
+    api_metrics?: number
+    system_metrics?: number
   }
-  company_health: Array<{
-    status: 'healthy' | 'warning' | 'critical'
-    error_rate: number
-    avg_response_time: number
-    uptime_percentage: number
-    active_users: number
-    critical_issues: number
-    last_check: Date
-    created_at: Date
+  user?: Array<{
+    email: string
+    name: string | null
   }>
-  api_metrics: Array<{
+  company_health?: CompanyHealth[]
+  api_metrics?: Array<{
+    id: number
     endpoint: string
     method: string
     status_code: number
-    duration_ms: number
+    response_time: number
     created_at: Date
-  }>
-  users: Array<{
-    email: string
-    name: string | null
   }>
 }

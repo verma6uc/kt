@@ -6,7 +6,7 @@ import { writeFile, mkdir } from 'fs/promises'
 import { company_type, company_status, audit_action, notification_priority, Prisma } from '@prisma/client'
 import { nanoid } from 'nanoid'
 import path from 'path'
-import { NotificationService } from '@/lib/notification-service'
+import crypto from 'crypto'
 
 export async function POST(request: Request) {
   try {
@@ -66,45 +66,53 @@ export async function POST(request: Request) {
       logoUrl = `/uploads/${filename}`
     }
 
+    const now = new Date()
+
     // Create company
     const company = await prisma.company.create({
       data: {
+        uuid: crypto.randomUUID(),
         name,
         identifier,
         logo_url: logoUrl,
         status: 'pending_setup' as company_status,
         type: 'small_business' as company_type,
+        updated_at: now,
         security_config: {
           create: {
+            uuid: crypto.randomUUID(),
             password_history_limit: 3,
             password_expiry_days: 90,
             max_failed_attempts: 5,
             session_timeout_mins: 60,
-            enforce_single_session: false
+            enforce_single_session: false,
+            updated_at: now
           }
         }
-      },
-      include: {
-        security_config: true
       }
     })
 
     // Create detailed audit log
+    const securityConfig = await prisma.security_config.findUnique({
+      where: { company_id: company.id }
+    })
+
     const auditDetails = [
       `Company created: ${company.name} (${company.identifier})`,
       `Initial Status: ${company.status}`,
       `Type: ${company.type}`,
       `Logo: ${company.logo_url ? 'Uploaded' : 'Not provided'}`,
       'Security Configuration:',
-      `- Password History Limit: ${company.security_config?.password_history_limit}`,
-      `- Password Expiry Days: ${company.security_config?.password_expiry_days}`,
-      `- Max Failed Attempts: ${company.security_config?.max_failed_attempts}`,
-      `- Session Timeout (mins): ${company.security_config?.session_timeout_mins}`,
-      `- Single Session: ${company.security_config?.enforce_single_session ? 'Enforced' : 'Not enforced'}`
+      `- Password History Limit: ${securityConfig?.password_history_limit}`,
+      `- Password Expiry Days: ${securityConfig?.password_expiry_days}`,
+      `- Max Failed Attempts: ${securityConfig?.max_failed_attempts}`,
+      `- Session Timeout (mins): ${securityConfig?.session_timeout_mins}`,
+      `- Single Session: ${securityConfig?.enforce_single_session ? 'Enforced' : 'Not enforced'}`
     ].join('\n')
 
     await prisma.audit_log.create({
       data: {
+        uuid: crypto.randomUUID(),
         user_id: parseInt(session.user.id),
         company_id: company.id,
         action: audit_action.create,
@@ -126,6 +134,7 @@ export async function POST(request: Request) {
     await Promise.all(superAdmins.map(admin => 
       prisma.notification.create({
         data: {
+          uuid: crypto.randomUUID(),
           user_id: admin.id,
           company_id: company.id,
           title: 'New Company Created',
@@ -189,8 +198,8 @@ export async function GET(request: Request) {
     }
 
     // Build order by clause
-    const orderBy: Prisma.companyOrderByWithRelationInput = sortField === 'users' 
-      ? { users: { _count: sortDirection } }
+    const orderBy: Prisma.companyOrderByWithRelationInput = sortField === 'user' 
+      ? { user: { _count: sortDirection } }
       : { [sortField]: sortDirection }
 
     // Get total count for pagination
@@ -207,32 +216,17 @@ export async function GET(request: Request) {
       include: {
         _count: {
           select: {
-            users: true,
-            api_metrics: true,
-            system_metrics: true
+            user: true
           },
         },
-        users: {
+        user: {
           where: {
-            role: 'company_admin',
             status: 'active'
           },
           select: {
             email: true,
             name: true
           }
-        },
-        company_health: {
-          orderBy: {
-            created_at: 'desc'
-          },
-          take: 1
-        },
-        api_metrics: {
-          orderBy: {
-            created_at: 'desc'
-          },
-          take: 100
         }
       },
     })
@@ -241,7 +235,7 @@ export async function GET(request: Request) {
     if (isExport) {
       const csvRows = [
         // CSV Header
-        ['ID', 'Name', 'Identifier', 'Type', 'Status', 'Industry', 'Users', 'API Metrics', 'System Metrics'].join(','),
+        ['ID', 'Name', 'Identifier', 'Type', 'Status', 'Industry', 'Users'].join(','),
         // Data rows
         ...companies.map(company => [
           company.id,
@@ -250,9 +244,7 @@ export async function GET(request: Request) {
           company.type,
           company.status,
           company.industry || '',
-          (company as any)._count.users,
-          (company as any)._count.api_metrics,
-          (company as any)._count.system_metrics
+          (company as any)._count.user
         ].join(','))
       ]
 
@@ -342,6 +334,7 @@ export async function PATCH(request: Request) {
         (data.get('registration_number') as string || null) : 
         data.registration_number,
       ...(logoUrl && { logo_url: logoUrl }),
+      updated_at: new Date()
     }
 
     // Get current company state for audit log
@@ -365,7 +358,7 @@ export async function PATCH(request: Request) {
     const company = await prisma.company.update({
       where: { id },
       include: {
-        users: true,
+        user: true,
         _count: true,
       },
       data: updateData,
@@ -418,6 +411,7 @@ export async function PATCH(request: Request) {
 
         await prisma.audit_log.create({
           data: {
+            uuid: crypto.randomUUID(),
             user_id: parseInt(session.user.id),
             company_id: id,
             action: audit_action.update,
