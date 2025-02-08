@@ -1,147 +1,105 @@
-import { NextAuthOptions } from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
-import { prisma } from "./prisma"
-import crypto from 'crypto'
+import { NextAuthOptions } from 'next-auth'
+import { PrismaAdapter } from '@next-auth/prisma-adapter'
+import { prisma } from '@/lib/prisma'
+import CredentialsProvider from 'next-auth/providers/credentials'
+import bcrypt from 'bcryptjs'
+import { user_role, user_status, company_status } from '@prisma/client'
 
 export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
+  session: {
+    strategy: 'jwt'
+  },
   providers: [
     CredentialsProvider({
-      name: "credentials",
+      name: 'credentials',
       credentials: {
-        email: { label: "Email", type: "email" }
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {
-        console.log('=== Auth Flow Start ===')
-        console.log('1. Authorize function called with credentials:', { email: credentials?.email })
-
-        if (!credentials?.email) {
-          console.log('No email provided')
-          throw new Error('CredentialsSignin')
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Invalid credentials')
         }
 
-        try {
-          console.log('2. Finding user in database')
-          const user = await prisma.user.findUnique({
-            where: {
-              email: credentials.email
-            },
-            include: {
-              company: {
-                include: {
-                  security_config: true
-                }
+        const user = await prisma.user.findUnique({
+          where: {
+            email: credentials.email
+          },
+          include: {
+            company: {
+              select: {
+                id: true,
+                name: true,
+                identifier: true,
+                status: true
               }
             }
-          })
-
-          console.log('3. User lookup result:', user ? {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            status: user.status
-          } : 'No user found')
-
-          if (!user) {
-            throw new Error('CredentialsSignin')
           }
+        })
 
-          // Log successful login
-          console.log('4. Creating audit log')
-          const auditLog = await prisma.audit_log.create({
-            data: {
-              uuid: crypto.randomUUID(),
-              user_id: user.id,
-              company_id: user.company_id,
-              action: 'login',
-              details: 'Successful login',
-              ip_address: '127.0.0.1',
-              user_agent: 'Unknown'
-            }
-          })
+        if (!user || !user.password) {
+          throw new Error('Invalid credentials')
+        }
 
-          console.log('5. Preparing user data for session')
-          const userData = {
-            id: user.id.toString(),
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            companyId: user.company_id.toString(),
-            company: {
-              id: user.company.id.toString(),
-              name: user.company.name,
-              identifier: user.company.identifier,
-              securityConfig: user.company.security_config
-            }
+        const isValid = await bcrypt.compare(credentials.password, user.password)
+
+        if (!isValid) {
+          throw new Error('Invalid credentials')
+        }
+
+        return {
+          id: user.id.toString(),
+          email: user.email,
+          name: user.name,
+          role: user.role as user_role,
+          status: user.status as user_status,
+          companyId: user.company_id.toString(),
+          company: {
+            id: user.company.id.toString(),
+            name: user.company.name,
+            identifier: user.company.identifier,
+            status: user.company.status as company_status
           }
-
-          console.log('6. Returning user data:', userData)
-          console.log('=== Auth Flow Complete ===')
-          return userData
-
-        } catch (error) {
-          console.error('Error in authorize function:', error)
-          throw error
         }
       }
     })
   ],
   callbacks: {
     async jwt({ token, user }) {
-      console.log('=== JWT Callback ===')
-      console.log('Input token:', token)
-      console.log('Input user:', user)
-
       if (user) {
-        const newToken = {
+        return {
           ...token,
           id: user.id,
+          email: user.email,
+          name: user.name,
           role: user.role,
+          status: user.status,
           companyId: user.companyId,
-          company: user.company
+          companyStatus: user.company.status
         }
-        console.log('New token:', newToken)
-        return newToken
       }
-      console.log('Returning existing token')
       return token
     },
     async session({ session, token }) {
-      console.log('=== Session Callback ===')
-      console.log('Input session:', session)
-      console.log('Input token:', token)
-
-      const newSession = {
+      return {
         ...session,
         user: {
-          ...session.user,
           id: token.id,
+          email: token.email,
+          name: token.name,
           role: token.role,
+          status: token.status,
           companyId: token.companyId,
-          company: token.company
+          company: {
+            id: token.companyId,
+            status: token.companyStatus
+          }
         }
       }
-      console.log('New session:', newSession)
-      return newSession
     }
   },
   pages: {
-    signIn: '/login',
-  },
-  session: {
-    strategy: 'jwt',
-    maxAge: 24 * 60 * 60, // 24 hours
-  },
-  debug: true,
-  logger: {
-    error(code, metadata) {
-      console.error('NextAuth Error:', code, metadata)
-    },
-    warn(code) {
-      console.warn('NextAuth Warning:', code)
-    },
-    debug(code, metadata) {
-      console.log('NextAuth Debug:', code, metadata)
-    }
-  },
-  secret: process.env.NEXTAUTH_SECRET
+    signIn: '/login'
+  }
 }

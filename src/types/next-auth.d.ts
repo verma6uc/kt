@@ -1,52 +1,34 @@
-import NextAuth, { DefaultSession } from 'next-auth'
-import { JWT } from 'next-auth/jwt'
+import { user_role, user_status, company_status } from '@prisma/client'
+import NextAuth from 'next-auth'
 
 declare module 'next-auth' {
-  interface Session extends DefaultSession {
-    user: {
-      id: string
-      email: string
-      name: string | null
-      role: 'super_admin' | 'company_admin' | 'user'
-      companyId: string
-      company: {
-        id: string
-        name: string
-        identifier: string
-        securityConfig: {
-          id: number
-          uuid: string
-          company_id: number
-          password_history_limit: number
-          password_expiry_days: number
-          max_failed_attempts: number
-          session_timeout_mins: number
-          enforce_single_session: boolean
-        } | null
-      }
-    } & DefaultSession['user']
-  }
-
   interface User {
     id: string
     email: string
     name: string | null
-    role: 'super_admin' | 'company_admin' | 'user'
+    role: user_role
+    status: user_status
     companyId: string
     company: {
       id: string
       name: string
       identifier: string
-      securityConfig: {
-        id: number
-        uuid: string
-        company_id: number
-        password_history_limit: number
-        password_expiry_days: number
-        max_failed_attempts: number
-        session_timeout_mins: number
-        enforce_single_session: boolean
-      } | null
+      status: company_status
+    }
+  }
+
+  interface Session {
+    user: {
+      id: string
+      email: string
+      name: string | null
+      role: user_role
+      status: user_status
+      companyId: string
+      company: {
+        id: string
+        status: company_status
+      }
     }
   }
 }
@@ -54,22 +36,11 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     id: string
-    role: 'super_admin' | 'company_admin' | 'user'
+    email: string
+    name: string | null
+    role: user_role
+    status: user_status
     companyId: string
-    company: {
-      id: string
-      name: string
-      identifier: string
-      securityConfig: {
-        id: number
-        uuid: string
-        company_id: number
-        password_history_limit: number
-        password_expiry_days: number
-        max_failed_attempts: number
-        session_timeout_mins: number
-        enforce_single_session: boolean
-      } | null
-    }
+    companyStatus: company_status
   }
 }
